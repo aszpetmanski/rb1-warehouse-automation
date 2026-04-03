@@ -1,0 +1,48 @@
+slam_toolbox:
+  ros__parameters:
+    # Frames
+    map_frame: map
+    odom_frame: fastbot_odom #change
+    base_frame: fastbot_base_link #change
+
+    # Laser topic
+    scan_topic: /scan        # change 
+
+    # General
+    mode: mapping
+    use_map_saver: true
+    debug_logging: false
+    throttle_scans: 1
+
+    # Timing / TF
+    transform_publish_period: 0.02
+    transform_timeout: 0.2
+    minimum_time_interval: 0.2
+    tf_buffer_duration: 30.0
+
+    # Map
+    resolution: 0.05
+    map_update_interval: 1.0
+
+    # Laser limits
+    min_laser_range: 0.12
+    max_laser_range: 3.5
+
+    # Scan matching
+    use_scan_matching: true
+    use_scan_barycenter: true
+
+    # Start with defaults here, then tune if needed
+    minimum_travel_distance: 0.1
+    minimum_travel_heading: 0.05
+
+    # Loop closing
+    do_loop_closing: true
+
+    # Solver
+    solver_plugin: solver_plugins::CeresSolver
+    ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner: SCHUR_JACOBI
+    ceres_trust_strategy: LEVENBERG_MARQUARDT
+    ceres_dogleg_type: TRADITIONAL_DOGLEG
+    ceres_loss_function: None
