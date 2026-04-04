@@ -25,7 +25,7 @@ controller_server:
       plugin: "nav2_controller::SimpleGoalChecker"
       stateful: True
       xy_goal_tolerance: 0.10
-      yaw_goal_tolerance: 0.35
+      yaw_goal_tolerance: 0.13
 
     # DWB local planner
     FollowPath:
@@ -39,12 +39,12 @@ controller_server:
       max_vel_x: 0.26
       min_vel_y: 0.0
       max_vel_y: 0.0
-      max_vel_theta: 1.0
+      max_vel_theta: 0.5
 
       min_speed_xy: 0.0
       max_speed_xy: 0.26
       min_speed_theta: 0.0
-      trans_stopped_velocity: 0.05
+      trans_stopped_velocity: 0.02
 
       # Acceleration limits
       acc_lim_x: 2.5
@@ -67,11 +67,11 @@ controller_server:
       xy_goal_tolerance: 0.10
 
       # Critics
-      critics: ["RotateToGoal", "Oscillation", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
+      critics: ["RotateToGoal", "Oscillation", "GoalAlign", "BaseObstacle", "PathAlign", "PathDist", "GoalDist"]
 
-      # BaseObstacle.scale: 0.5
+      BaseObstacle.scale: 2.0
 
-      PathAlign.scale: 16.0
+      PathAlign.scale: 8.0
       PathAlign.forward_point_distance: 0.1
 
       GoalAlign.scale: 18.0
@@ -80,8 +80,8 @@ controller_server:
       PathDist.scale: 4.0
       GoalDist.scale: 12.0
 
-      RotateToGoal.scale: 8.0
-      RotateToGoal.slowing_factor: 5.0
+      RotateToGoal.scale: 16.0
+      RotateToGoal.slowing_factor: 8.0
       RotateToGoal.lookahead_time: -1.0
 
 
@@ -104,7 +104,7 @@ local_costmap:
       width: 6
       height: 6
       resolution: 0.05
-      robot_radius: 0.22
+      robot_radius: 0.27
 
       # Layers
       plugins: ["obstacle_layer", "inflation_layer"]
@@ -127,5 +127,5 @@ local_costmap:
 
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 3.0
-        inflation_radius: 0.15
+        cost_scaling_factor: 2.0
+        inflation_radius: 0.34
