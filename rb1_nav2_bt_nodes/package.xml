@@ -1,0 +1,41 @@
+<?xml version="1.0"?>
+<package format="3">
+  <name>rb1_nav2_bt_nodes</name>
+  <version>0.1.0</version>
+  <description>Custom Nav2 Behavior Tree nodes for RB1 warehouse automation.</description>
+
+  <maintainer email="alan.szpetmanski@gmail.com">Alan Szpetmanski</maintainer>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <!-- Core ROS 2 -->
+  <depend>rclcpp</depend>
+  <depend>rclcpp_action</depend>
+
+  <!-- Messages -->
+  <depend>geometry_msgs</depend>
+  <depend>sensor_msgs</depend>
+  <depend>nav2_msgs</depend>
+
+  <!-- TF -->
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_geometry_msgs</depend>
+
+  <!-- Behavior Tree -->
+  <depend>behaviortree_cpp_v3</depend>
+
+  <!-- Nav2 packages commonly needed around BT integration -->
+  <depend>nav2_util</depend>
+
+  <!-- Optional but useful if you later switch some nodes to Nav2's BtActionNode wrapper -->
+  <!-- <depend>nav2_behavior_tree</depend> -->
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
