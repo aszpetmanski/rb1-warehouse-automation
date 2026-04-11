@@ -51,7 +51,7 @@ struct TransformPointOptions {
   bool warn_on_fallback{true};
 };
 
-'''
+/*
     // Result of matching a transformed cluster against a reference point.
     struct TransformedClusterMatch {
   ScanCluster cluster;
@@ -60,6 +60,7 @@ struct TransformPointOptions {
 };
 
 // Candidate shelf detection represented in the target frame.
+*/
 
 // We do this weird shinanigans to supress build warning
 struct ShelfCandidateDetection {
@@ -75,7 +76,6 @@ struct ShelfCandidateDetection {
         right_leg_target_frame(rosidl_runtime_cpp::MessageInitialization::ALL),
         confidence(0.0), valid(false) {}
 };
-'''
 
 } // namespace rb1_bt
 
