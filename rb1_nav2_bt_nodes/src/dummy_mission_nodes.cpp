@@ -9,78 +9,6 @@
 
 namespace rb1_bt {
 
-DockToShelf::DockToShelf(const std::string &name,
-                         const BT::NodeConfiguration &config)
-    : BT::StatefulActionNode(name, config) {}
-
-bool DockToShelf::initializeRosNode() {
-  if (!node_) {
-    config().blackboard->get<rclcpp::Node::SharedPtr>("node", node_);
-    if (!node_) {
-      throw std::runtime_error("DockToShelf: missing ROS node on blackboard");
-    }
-  }
-
-  return true;
-}
-
-BT::PortsList DockToShelf::providedPorts() {
-  return {BT::InputPort<double>("wait_duration", 5.0,
-                                "Seconds to wait in dummy docking")};
-}
-
-BT::NodeStatus DockToShelf::onStart() {
-  initializeRosNode();
-
-  getInput("wait_duration", wait_duration_sec_);
-  start_time_ = node_->now();
-
-  RCLCPP_INFO(node_->get_logger(),
-              "DockToShelf: DOCKUJE... dummy wait %.2f sec",
-              wait_duration_sec_);
-
-  return BT::NodeStatus::RUNNING;
-}
-
-BT::NodeStatus DockToShelf::onRunning() {
-  const double elapsed = (node_->now() - start_time_).seconds();
-
-  if (elapsed >= wait_duration_sec_) {
-    RCLCPP_INFO(node_->get_logger(), "DockToShelf: dummy docking SUCCESS");
-    return BT::NodeStatus::SUCCESS;
-  }
-
-  return BT::NodeStatus::RUNNING;
-}
-
-void DockToShelf::onHalted() {
-  RCLCPP_INFO(node_->get_logger(), "DockToShelf: halted");
-}
-
-LiftShelf::LiftShelf(const std::string &name,
-                     const BT::NodeConfiguration &config)
-    : BT::SyncActionNode(name, config) {}
-
-bool LiftShelf::initializeRosNode() {
-  if (!node_) {
-    config().blackboard->get<rclcpp::Node::SharedPtr>("node", node_);
-    if (!node_) {
-      throw std::runtime_error("LiftShelf: missing ROS node on blackboard");
-    }
-  }
-
-  return true;
-}
-
-BT::PortsList LiftShelf::providedPorts() { return {}; }
-
-BT::NodeStatus LiftShelf::tick() {
-  initializeRosNode();
-
-  RCLCPP_INFO(node_->get_logger(), "LiftShelf: dummy SUCCESS");
-  return BT::NodeStatus::SUCCESS;
-}
-
 PlaceShelf::PlaceShelf(const std::string &name,
                        const BT::NodeConfiguration &config)
     : BT::SyncActionNode(name, config) {}
@@ -132,8 +60,6 @@ BT::NodeStatus StopRobot::tick() {
 } // namespace rb1_bt
 
 BT_REGISTER_NODES(factory) {
-  factory.registerNodeType<rb1_bt::DockToShelf>("DockToShelf");
-  factory.registerNodeType<rb1_bt::LiftShelf>("LiftShelf");
   factory.registerNodeType<rb1_bt::PlaceShelf>("PlaceShelf");
   factory.registerNodeType<rb1_bt::StopRobot>("StopRobot");
 }

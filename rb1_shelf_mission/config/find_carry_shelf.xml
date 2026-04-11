@@ -108,9 +108,11 @@
           </SequenceStar>
         </RecoveryNode>
 
-        <DockToShelf wait_duration="5.0" />
-
-        <LiftShelf />
+        <DockToShelf
+          shelf_center="{shelf_center}"
+          target_frame="map"
+          drive_distance="0.85"
+          forward_speed="0.20" />
 
         <RecoveryNode number_of_retries="6" name="NavigateToDropoffRecovery">
           <PipelineSequence name="NavigateToDropoffWithReplanning">

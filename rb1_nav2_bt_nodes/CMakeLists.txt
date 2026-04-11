@@ -11,6 +11,7 @@ find_package(rclcpp_action REQUIRED)
 
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(nav2_msgs REQUIRED)
 
 find_package(tf2 REQUIRED)
@@ -173,7 +174,38 @@ target_compile_features(rb1_compute_pre_dock_pose_bt_node PUBLIC cxx_std_17)
 target_compile_definitions(rb1_compute_pre_dock_pose_bt_node PRIVATE BT_PLUGIN_EXPORT)
 
 # -------------------------------
-# Plugin 5: Remaining dummy mission nodes
+# Plugin 5: DockToShelf
+# -------------------------------
+add_library(rb1_dock_to_shelf_bt_node SHARED
+  src/dock_to_shelf.cpp
+)
+
+target_include_directories(rb1_dock_to_shelf_bt_node
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+
+ament_target_dependencies(rb1_dock_to_shelf_bt_node
+  rclcpp
+  geometry_msgs
+  std_msgs
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+  behaviortree_cpp_v3
+  nav2_util
+)
+
+target_link_libraries(rb1_dock_to_shelf_bt_node
+  rb1_shelf_scan_utils
+)
+
+target_compile_features(rb1_dock_to_shelf_bt_node PUBLIC cxx_std_17)
+target_compile_definitions(rb1_dock_to_shelf_bt_node PRIVATE BT_PLUGIN_EXPORT)
+
+# -------------------------------
+# Plugin 6: Remaining dummy mission nodes
 # -------------------------------
 add_library(rb1_dummy_mission_bt_nodes SHARED
   src/dummy_mission_nodes.cpp
@@ -210,6 +242,7 @@ install(
     rb1_init_shelf_mission_bt_node
     rb1_validate_shelf_candidate_bt_node
     rb1_compute_pre_dock_pose_bt_node
+    rb1_dock_to_shelf_bt_node
     rb1_dummy_mission_bt_nodes
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
@@ -224,6 +257,7 @@ ament_export_libraries(
   rb1_init_shelf_mission_bt_node
   rb1_validate_shelf_candidate_bt_node
   rb1_compute_pre_dock_pose_bt_node
+  rb1_dock_to_shelf_bt_node
   rb1_dummy_mission_bt_nodes
 )
 ament_export_dependencies(
@@ -231,6 +265,7 @@ ament_export_dependencies(
   rclcpp_action
   geometry_msgs
   sensor_msgs
+  std_msgs
   nav2_msgs
   tf2
   tf2_ros
