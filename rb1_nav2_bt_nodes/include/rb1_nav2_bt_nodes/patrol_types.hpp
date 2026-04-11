@@ -13,81 +13,27 @@
 
 namespace rb1_bt {
 
-/**
- * @brief Minimalny pose 2D używany do przekazywania waypointów patrolu.
- *
- * Ten typ istnieje po to, żeby nie ciągnąć przez BT całych ROS-owych
- * PoseStamped, jeśli na etapie patrolowania potrzebujemy tylko:
- * - pozycji X,
- * - pozycji Y,
- * - orientacji yaw.
- *
- * Dzięki temu port BT jest prostszy, a format wejściowy da się wygodnie zapisać
- * jako tekst lub wrzucić przez blackboard z innego noda.
- */
+// Lightweight 2D pose used to pass patrol waypoints through the BT.
 struct SimplePose2D {
   double x{0.0};
   double y{0.0};
   double yaw{0.0};
 };
 
-/**
- * @brief Prosty punkt 2D w układzie kartezjańskim.
- *
- * Ten typ jest używany lokalnie przez algorytmy analizy skanu lidarowego.
- * Nie jest to typ ROS-owy celowo:
- * - jest lżejszy,
- * - nie niesie headerów,
- * - łatwiej go używać w helperach matematycznych.
- *
- * Typowo reprezentuje punkt w układzie ramki skanera.
- */
+// Simple 2D Cartesian point used by scan-processing helpers.
 struct Point2D {
   double x{0.0};
   double y{0.0};
 };
 
-/**
- * @brief Reprezentacja pojedynczego klastra punktów wyciętego ze skanu.
- *
- * Klaster to grupa sąsiednich próbek LaserScan, które:
- * - należą do rozpatrywanego okna indeksów,
- * - spełniają kryteria zakresu/intensywności,
- * - są wystarczająco blisko siebie geometrycznie.
- *
- * Dla uproszczenia przechowujemy tylko:
- * - centroid klastra w układzie skanera,
- * - średnią intensywność,
- * - liczbę punktów.
- *
- * To wystarcza do budowy prostego detektora nóg shelfa.
- */
+// Summary of a point cluster extracted from a laser scan window.
 struct ScanCluster {
   Point2D centroid_laser;
   double mean_intensity{0.0};
   int num_points{0};
 };
 
-/**
- * @brief Parametry heurystycznego detektora nóg shelfa.
- *
- * Ta struktura grupuje wszystkie progi i wartości strojenia, które dotyczą
- * analizy skanu. Dzięki temu:
- * - sygnatury funkcji pomocniczych są krótsze,
- * - łatwiej utrzymać spójność parametrów,
- * - w przyszłości można to łatwo serializować / logować / testować.
- *
- * Pola:
- * - expected_leg_spacing: oczekiwany rozstaw nóg shelfa,
- * - leg_spacing_tolerance: dopuszczalny błąd rozstawu,
- * - cluster_gap_tolerance: maksymalna odległość między kolejnymi punktami
- *   należącymi jeszcze do tego samego klastra,
- * - intensity_threshold: minimalna intensywność próbki, jeśli sensor ją
- * dostarcza,
- * - max_detection_range: maksymalny zasięg, w którym w ogóle rozważamy obiekty,
- * - min_cluster_points: minimalna liczba próbek potrzebna, by uznać klaster za
- * sensowny.
- */
+// Tunable parameters for shelf-leg detection from LaserScan data.
 struct ShelfDetectorParams {
   double expected_leg_spacing{0.60};
   double leg_spacing_tolerance{0.08};
@@ -97,24 +43,23 @@ struct ShelfDetectorParams {
   int min_cluster_points{2};
 };
 
-/**
- * @brief Wynik wykrycia kandydata na shelf.
- *
- * To jest wynik "średniego poziomu":
- * - jeszcze nie pełna walidacja shelfa,
- * - ale już coś więcej niż surowe klastry.
- *
- * Struktura przechowuje:
- * - pozycję środka między nogami shelfa,
- * - pozycję lewej nogi,
- * - pozycję prawej nogi,
- * - confidence heurystyczny,
- * - flagę valid.
- *
- * Wszystkie punkty są przechowywane już w ramce docelowej
- * (najczęściej `map`), żeby kolejne nody BT nie musiały powtarzać
- * tych samych transformacji.
- */
+// Options for transforming points between TF frames.
+struct TransformPointOptions {
+  double exact_timeout_sec{0.05};
+  bool allow_latest_fallback{false};
+  double fallback_timeout_sec{0.05};
+  bool warn_on_fallback{true};
+};
+
+'''
+    // Result of matching a transformed cluster against a reference point.
+    struct TransformedClusterMatch {
+  ScanCluster cluster;
+  geometry_msgs::msg::Point centroid_target_frame;
+  double distance_to_ref{0.0};
+};
+
+// Candidate shelf detection represented in the target frame.
 
 // We do this weird shinanigans to supress build warning
 struct ShelfCandidateDetection {
@@ -130,21 +75,13 @@ struct ShelfCandidateDetection {
         right_leg_target_frame(rosidl_runtime_cpp::MessageInitialization::ALL),
         confidence(0.0), valid(false) {}
 };
+'''
 
 } // namespace rb1_bt
 
 namespace BT {
 
-/**
- * @brief Pomocnicza funkcja usuwająca białe znaki z obu stron napisu.
- *
- * Jest używana podczas parsowania wejścia tekstowego na potrzeby portów BT.
- * Dzięki temu wejścia typu:
- *   "1.0, 2.0, 0.0"
- * i
- *   "1.0,2.0,0.0"
- * są traktowane tak samo.
- */
+// Returns a copy of the string with leading/trailing whitespace removed.
 inline std::string trimCopy(const std::string &input) {
   std::size_t begin = 0;
   while (begin < input.size() &&
@@ -161,18 +98,7 @@ inline std::string trimCopy(const std::string &input) {
   return input.substr(begin, end - begin);
 }
 
-/**
- * @brief Specjalizacja parsera BehaviorTree.CPP dla pojedynczego waypointu 2D.
- *
- * Oczekiwany format:
- *   "x,y,yaw"
- *
- * Przykład:
- *   "1.25,3.40,1.57"
- *
- * Ta funkcja jest wywoływana automatycznie przez BT, gdy port wejściowy
- * jest zadeklarowany jako `rb1_bt::SimplePose2D`.
- */
+// Parses a single pose from the format: "x,y,yaw".
 template <> inline rb1_bt::SimplePose2D convertFromString(StringView str) {
   const std::string input(str.data(), str.size());
   std::stringstream ss(input);
@@ -199,21 +125,7 @@ template <> inline rb1_bt::SimplePose2D convertFromString(StringView str) {
   return pose;
 }
 
-/**
- * @brief Specjalizacja parsera BehaviorTree.CPP dla listy waypointów 2D.
- *
- * Oczekiwany format:
- *   "x1,y1,yaw1; x2,y2,yaw2; x3,y3,yaw3"
- *
- * Przykład:
- *   "1.0,2.0,0.0; 3.0,2.0,1.57; 3.5,4.0,3.14"
- *
- * Dzięki tej specjalizacji można bezpośrednio zdefiniować port BT jako:
- *   std::vector<rb1_bt::SimplePose2D>
- *
- * Jest to wygodne na początek projektu, bo nie wymaga własnego typu ROS message
- * tylko do przekazania patrol route.
- */
+// Parses a list of poses from the format: "x,y,yaw; x,y,yaw; ...".
 template <>
 inline std::vector<rb1_bt::SimplePose2D> convertFromString(StringView str) {
   const std::string input(str.data(), str.size());
