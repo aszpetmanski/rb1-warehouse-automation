@@ -12,6 +12,46 @@
 
 namespace rb1_bt::scan_utils {
 
+namespace {
+
+// Checks whether a single LaserScan reading can be used for
+// clustering/detection. It rejects out-of-bounds indices, non-finite values,
+// sensor-invalid ranges, points beyond the configured detection distance, and
+// low-intensity returns.
+bool isMeasurementValid(const sensor_msgs::msg::LaserScan &scan, int index,
+                        const ShelfDetectorParams &params) {
+  if (index < 0 || index >= static_cast<int>(scan.ranges.size())) {
+    return false;
+  }
+
+  const double range = scan.ranges[index];
+  if (!std::isfinite(range)) {
+    return false;
+  }
+
+  if (range < scan.range_min || range > scan.range_max) {
+    return false;
+  }
+
+  if (range > params.max_detection_range) {
+    return false;
+  }
+
+  if (!scan.intensities.empty()) {
+    if (index >= static_cast<int>(scan.intensities.size())) {
+      return false;
+    }
+    if (scan.intensities[index] < params.intensity_threshold) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+} // namespace
+
+// Converts a polar LiDAR measurement (range, angle) into a 2D Cartesian point.
 Point2D polarToCartesian(double range, double angle_rad) {
   Point2D point;
   point.x = range * std::cos(angle_rad);
@@ -19,6 +59,8 @@ Point2D polarToCartesian(double range, double angle_rad) {
   return point;
 }
 
+// Clamps a requested scan index window into valid bounds and ensures start <=
+// end.
 bool normalizeWindow(int requested_start_idx, int requested_end_idx,
                      int scan_size, int &normalized_start_idx,
                      int &normalized_end_idx) {
@@ -38,6 +80,47 @@ bool normalizeWindow(int requested_start_idx, int requested_end_idx,
   return normalized_start_idx <= normalized_end_idx;
 }
 
+// Returns the 2D Euclidean distance between two internal Point2D values.
+double distance2D(const Point2D &a, const Point2D &b) {
+  return std::hypot(a.x - b.x, a.y - b.y);
+}
+
+// Returns the 2D Euclidean distance between two ROS geometry points.
+double distance2D(const geometry_msgs::msg::Point &a,
+                  const geometry_msgs::msg::Point &b) {
+  return std::hypot(a.x - b.x, a.y - b.y);
+}
+
+// Computes the average of a list of geometry points.
+// If the input is empty, it returns a zero-initialized point.
+geometry_msgs::msg::Point
+averageGeometryPoints(const std::vector<geometry_msgs::msg::Point> &points) {
+  geometry_msgs::msg::Point avg;
+  avg.x = 0.0;
+  avg.y = 0.0;
+  avg.z = 0.0;
+
+  if (points.empty()) {
+    return avg;
+  }
+
+  for (const auto &p : points) {
+    avg.x += p.x;
+    avg.y += p.y;
+    avg.z += p.z;
+  }
+
+  const double inv_n = 1.0 / static_cast<double>(points.size());
+  avg.x *= inv_n;
+  avg.y *= inv_n;
+  avg.z *= inv_n;
+
+  return avg;
+}
+
+// Extracts contiguous point clusters from a scan index window.
+// A new cluster starts when a measurement is invalid or the gap between
+// consecutive points is larger than the configured tolerance.
 std::vector<ScanCluster>
 extractClustersFromIndexWindow(const sensor_msgs::msg::LaserScan &scan,
                                int start_idx, int end_idx,
@@ -90,22 +173,12 @@ extractClustersFromIndexWindow(const sensor_msgs::msg::LaserScan &scan,
   };
 
   for (int index = normalized_start; index <= normalized_end; ++index) {
-    const double range = scan.ranges[index];
-
-    if (!std::isfinite(range) || range < scan.range_min ||
-        range > scan.range_max || range > params.max_detection_range) {
+    if (!isMeasurementValid(scan, index, params)) {
       flushCluster();
       continue;
     }
 
-    if (has_intensity) {
-      if (index >= static_cast<int>(scan.intensities.size()) ||
-          scan.intensities[index] < params.intensity_threshold) {
-        flushCluster();
-        continue;
-      }
-    }
-
+    const double range = scan.ranges[index];
     const double angle =
         scan.angle_min + static_cast<double>(index) * scan.angle_increment;
     const Point2D current_point = polarToCartesian(range, angle);
@@ -122,9 +195,7 @@ extractClustersFromIndexWindow(const sensor_msgs::msg::LaserScan &scan,
       continue;
     }
 
-    const double gap = std::hypot(current_point.x - previous_point->x,
-                                  current_point.y - previous_point->y);
-
+    const double gap = distance2D(current_point, *previous_point);
     if (gap > params.cluster_gap_tolerance) {
       flushCluster();
     }
@@ -143,6 +214,7 @@ extractClustersFromIndexWindow(const sensor_msgs::msg::LaserScan &scan,
   return output_clusters;
 }
 
+// Convenience overload that transforms a 2D point using default TF options.
 bool transformPointToFrame(const tf2_ros::Buffer &tf_buffer,
                            const std::string &source_frame,
                            const std::string &target_frame,
@@ -150,6 +222,19 @@ bool transformPointToFrame(const tf2_ros::Buffer &tf_buffer,
                            const Point2D &input_point,
                            geometry_msgs::msg::Point &output_point,
                            const rclcpp::Logger &logger) {
+  TransformPointOptions options;
+  return transformPointToFrame(tf_buffer, source_frame, target_frame, stamp,
+                               input_point, output_point, logger, options);
+}
+
+// Transforms a 2D point from one frame into another.
+// It first tries the exact timestamp, and can optionally fall back
+// to the latest available transform if configured to do so.
+bool transformPointToFrame(
+    const tf2_ros::Buffer &tf_buffer, const std::string &source_frame,
+    const std::string &target_frame, const rclcpp::Time &stamp,
+    const Point2D &input_point, geometry_msgs::msg::Point &output_point,
+    const rclcpp::Logger &logger, const TransformPointOptions &options) {
   geometry_msgs::msg::PointStamped in_point;
   geometry_msgs::msg::PointStamped out_point;
 
@@ -159,10 +244,44 @@ bool transformPointToFrame(const tf2_ros::Buffer &tf_buffer,
   in_point.point.y = input_point.y;
   in_point.point.z = 0.0;
 
+  if (source_frame == target_frame) {
+    output_point = in_point.point;
+    return true;
+  }
+
   try {
     out_point =
-        tf_buffer.transform(in_point, target_frame, tf2::durationFromSec(0.05));
+        tf_buffer.transform(in_point, target_frame,
+                            tf2::durationFromSec(options.exact_timeout_sec));
     output_point = out_point.point;
+    return true;
+  } catch (const tf2::TransformException &) {
+    // fall through to latest-transform fallback if enabled
+  }
+
+  if (!options.allow_latest_fallback) {
+    RCLCPP_WARN(logger,
+                "transformPointToFrame failed from '%s' to '%s' at exact time",
+                source_frame.c_str(), target_frame.c_str());
+    return false;
+  }
+
+  try {
+    in_point.header.stamp = builtin_interfaces::msg::Time();
+
+    out_point =
+        tf_buffer.transform(in_point, target_frame,
+                            tf2::durationFromSec(options.fallback_timeout_sec));
+    output_point = out_point.point;
+
+    if (options.warn_on_fallback) {
+      RCLCPP_WARN_THROTTLE(
+          logger, *rclcpp::Clock::make_shared(), 2000,
+          "transformPointToFrame: exact-time TF unavailable for %s -> %s, "
+          "used latest-transform fallback",
+          source_frame.c_str(), target_frame.c_str());
+    }
+
     return true;
   } catch (const tf2::TransformException &ex) {
     RCLCPP_WARN(logger, "transformPointToFrame failed from '%s' to '%s': %s",
@@ -171,11 +290,64 @@ bool transformPointToFrame(const tf2_ros::Buffer &tf_buffer,
   }
 }
 
-std::optional<ShelfCandidateDetection> detectShelfCandidateInWindow(
-    const sensor_msgs::msg::LaserScan &scan, int start_idx, int end_idx,
-    const ShelfDetectorParams &params, const tf2_ros::Buffer &tf_buffer,
-    const std::string &target_frame, const rclcpp::Time &transform_time,
-    const rclcpp::Logger &logger) {
+'''
+    // Finds the cluster in the given scan window whose transformed centroid
+    // is closest to a reference point in the target frame.
+    bool
+    findClosestTransformedClusterInWindow(
+        const sensor_msgs::msg::LaserScan &scan, int start_idx, int end_idx,
+        const ShelfDetectorParams &params, const tf2_ros::Buffer &tf_buffer,
+        const std::string &target_frame, const rclcpp::Time &transform_time,
+        const geometry_msgs::msg::Point &reference_point_target_frame,
+        double max_match_distance, TransformedClusterMatch &match_out,
+        const rclcpp::Logger &logger, const TransformPointOptions &tf_options) {
+  const auto clusters =
+      extractClustersFromIndexWindow(scan, start_idx, end_idx, params);
+
+  if (clusters.empty()) {
+    return false;
+  }
+
+  double best_dist = std::numeric_limits<double>::infinity();
+  bool found = false;
+
+  for (const auto &cluster : clusters) {
+    geometry_msgs::msg::Point transformed;
+    if (!transformPointToFrame(tf_buffer, scan.header.frame_id, target_frame,
+                               transform_time, cluster.centroid_laser,
+                               transformed, logger, tf_options)) {
+      continue;
+    }
+
+    const double dist = distance2D(transformed, reference_point_target_frame);
+    if (dist < best_dist) {
+      best_dist = dist;
+      match_out.cluster = cluster;
+      match_out.centroid_target_frame = transformed;
+      match_out.distance_to_ref = dist;
+      found = true;
+    }
+  }
+
+  if (!found) {
+    return false;
+  }
+
+  return best_dist <= max_match_distance;
+}
+'''
+
+    // Looks for a shelf-like candidate made of two clusters whose spacing
+    // matches the expected shelf leg separation, then returns the best-scoring
+    // pair.
+    std::optional<ShelfCandidateDetection>
+    detectShelfCandidateInWindow(const sensor_msgs::msg::LaserScan &scan,
+                                 int start_idx, int end_idx,
+                                 const ShelfDetectorParams &params,
+                                 const tf2_ros::Buffer &tf_buffer,
+                                 const std::string &target_frame,
+                                 const rclcpp::Time &transform_time,
+                                 const rclcpp::Logger &logger) {
   const auto clusters =
       extractClustersFromIndexWindow(scan, start_idx, end_idx, params);
 
@@ -185,6 +357,12 @@ std::optional<ShelfCandidateDetection> detectShelfCandidateInWindow(
 
   double best_score = -std::numeric_limits<double>::infinity();
   std::optional<ShelfCandidateDetection> best_detection;
+
+  TransformPointOptions tf_options;
+  tf_options.exact_timeout_sec = 0.05;
+  tf_options.allow_latest_fallback = false;
+  tf_options.fallback_timeout_sec = 0.05;
+  tf_options.warn_on_fallback = false;
 
   for (std::size_t i = 0; i < clusters.size(); ++i) {
     for (std::size_t j = i + 1; j < clusters.size(); ++j) {
@@ -211,19 +389,19 @@ std::optional<ShelfCandidateDetection> detectShelfCandidateInWindow(
 
       if (!transformPointToFrame(tf_buffer, scan.header.frame_id, target_frame,
                                  transform_time, first.centroid_laser,
-                                 first_target, logger)) {
+                                 first_target, logger, tf_options)) {
         continue;
       }
 
       if (!transformPointToFrame(tf_buffer, scan.header.frame_id, target_frame,
                                  transform_time, second.centroid_laser,
-                                 second_target, logger)) {
+                                 second_target, logger, tf_options)) {
         continue;
       }
 
       if (!transformPointToFrame(tf_buffer, scan.header.frame_id, target_frame,
                                  transform_time, center_laser, center_target,
-                                 logger)) {
+                                 logger, tf_options)) {
         continue;
       }
 
