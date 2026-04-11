@@ -4,8 +4,7 @@
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
 #include <rclcpp/rclcpp.hpp>
-
-#include "rb1_nav2_bt_nodes/patrol_types.hpp"
+#include <tf2_ros/buffer.h>
 
 namespace rb1_bt {
 
@@ -21,6 +20,7 @@ public:
 
 private:
   rclcpp::Node::SharedPtr node_;
+  std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
 };
 
 } // namespace rb1_bt

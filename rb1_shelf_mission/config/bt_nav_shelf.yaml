@@ -12,11 +12,10 @@ bt_navigator:
     default_server_timeout: 20
     wait_for_service_timeout: 1000
 
-    # BT XML - mission tree z nowej paczki
+    # BT XML
     default_nav_to_pose_bt_xml: "/home/user/ros2_ws/src/rb1-warehouse-automation/rb1_shelf_missions/config/find_and_carry_shelf.xml"
 
     # BT plugins
-    # Na Humble zostawiasz pełną listę built-inów + dodajesz swoją bibliotekę.
     plugin_lib_names:
       - nav2_compute_path_to_pose_action_bt_node
       - nav2_compute_path_through_poses_action_bt_node
@@ -63,7 +62,7 @@ bt_navigator:
       - nav2_back_up_cancel_bt_node
       - nav2_drive_on_heading_cancel_bt_node
 
-      ustom BT nodes
+      Custom BT nodes
       - rb1_nav2_bt_nodes
 
     error_code_names:

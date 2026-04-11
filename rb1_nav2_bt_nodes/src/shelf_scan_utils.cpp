@@ -62,10 +62,7 @@ buildPoseStampedFromWaypoint(const SimplePose2D &waypoint,
   pose.pose.position.x = waypoint.x;
   pose.pose.position.y = waypoint.y;
   pose.pose.position.z = 0.0;
-
-  tf2::Quaternion q;
-  q.setRPY(0.0, 0.0, waypoint.yaw);
-  pose.pose.orientation = tf2::toMsg(q);
+  pose.pose.orientation = yawToQuaternion(waypoint.yaw);
 
   return pose;
 }
@@ -133,6 +130,57 @@ averageGeometryPoints(const std::vector<geometry_msgs::msg::Point> &points) {
   avg.z *= inv_n;
 
   return avg;
+}
+
+// Computes midpoint of two geometry points.
+geometry_msgs::msg::Point
+midpointGeometryPoints(const geometry_msgs::msg::Point &a,
+                       const geometry_msgs::msg::Point &b) {
+  geometry_msgs::msg::Point midpoint;
+  midpoint.x = 0.5 * (a.x + b.x);
+  midpoint.y = 0.5 * (a.y + b.y);
+  midpoint.z = 0.5 * (a.z + b.z);
+  return midpoint;
+}
+
+// Builds a quaternion from yaw angle.
+geometry_msgs::msg::Quaternion yawToQuaternion(double yaw) {
+  tf2::Quaternion q;
+  q.setRPY(0.0, 0.0, yaw);
+  return tf2::toMsg(q);
+}
+
+// Gets current robot origin position in target_frame by transforming
+// (0,0,0) from robot_frame.
+bool getRobotPositionInFrame(const tf2_ros::Buffer &tf_buffer,
+                             const std::string &target_frame,
+                             geometry_msgs::msg::Point &robot_position_out,
+                             const rclcpp::Logger &logger,
+                             const std::string &robot_frame) {
+  geometry_msgs::msg::PointStamped in_point;
+  geometry_msgs::msg::PointStamped out_point;
+
+  in_point.header.frame_id = robot_frame;
+  in_point.header.stamp = builtin_interfaces::msg::Time();
+  in_point.point.x = 0.0;
+  in_point.point.y = 0.0;
+  in_point.point.z = 0.0;
+
+  if (robot_frame == target_frame) {
+    robot_position_out = in_point.point;
+    return true;
+  }
+
+  try {
+    out_point =
+        tf_buffer.transform(in_point, target_frame, tf2::durationFromSec(0.1));
+    robot_position_out = out_point.point;
+    return true;
+  } catch (const tf2::TransformException &ex) {
+    RCLCPP_WARN(logger, "getRobotPositionInFrame failed from '%s' to '%s': %s",
+                robot_frame.c_str(), target_frame.c_str(), ex.what());
+    return false;
+  }
 }
 
 // Extracts contiguous point clusters from a scan index window.

@@ -132,7 +132,6 @@ BT::NodeStatus StopRobot::tick() {
 } // namespace rb1_bt
 
 BT_REGISTER_NODES(factory) {
-  factory.registerNodeType<rb1_bt::ComputePreDockPose>("ComputePreDockPose");
   factory.registerNodeType<rb1_bt::DockToShelf>("DockToShelf");
   factory.registerNodeType<rb1_bt::LiftShelf>("LiftShelf");
   factory.registerNodeType<rb1_bt::PlaceShelf>("PlaceShelf");

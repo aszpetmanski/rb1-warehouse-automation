@@ -77,10 +77,11 @@
           candidate_window="{candidate_window}" />
 
         <ComputePreDockPose
-          shelf_center="{shelf_center}"
+          shelf_left_leg="{shelf_left_leg}"
+          shelf_right_leg="{shelf_right_leg}"
           target_frame="map"
-          predock_pose="{predock_pose}"
-          dock_pose="{dock_pose}" />
+          predock_offset="0.60"
+          predock_pose="{predock_pose}" />
 
         <RecoveryNode number_of_retries="6" name="NavigateToPredockRecovery">
           <PipelineSequence name="NavigateToPredockWithReplanning">

@@ -4,6 +4,7 @@
 
 #include <geometry_msgs/msg/point.hpp>
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/quaternion.hpp>
 #include <rclcpp/logger.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp/time.hpp>
@@ -29,6 +30,18 @@ double distance2D(const geometry_msgs::msg::Point &a,
 
 geometry_msgs::msg::Point
 averageGeometryPoints(const std::vector<geometry_msgs::msg::Point> &points);
+
+geometry_msgs::msg::Point
+midpointGeometryPoints(const geometry_msgs::msg::Point &a,
+                       const geometry_msgs::msg::Point &b);
+
+geometry_msgs::msg::Quaternion yawToQuaternion(double yaw);
+
+bool getRobotPositionInFrame(const tf2_ros::Buffer &tf_buffer,
+                             const std::string &target_frame,
+                             geometry_msgs::msg::Point &robot_position_out,
+                             const rclcpp::Logger &logger,
+                             const std::string &robot_frame = "robot_base_link");
 
 geometry_msgs::msg::PoseStamped
 buildPoseStampedFromWaypoint(const SimplePose2D &waypoint,

@@ -13,60 +13,6 @@
 
 namespace rb1_bt {
 
-
-class ComputePreDockPose : public BT::SyncActionNode {
-public:
-  /**
-   * @brief Konstruktor noda.
-   *
-   * Pobiera `rclcpp::Node` z blackboardu, żeby logować i stemplować wyjściowe
-   * pose.
-   */
-  ComputePreDockPose(const std::string &name,
-                     const BT::NodeConfiguration &config);
-
-  /**
-   * @brief Definicja portów BT.
-   *
-   * Wejścia:
-   * - shelf_center: środek shelfa po walidacji,
-   * - target_frame: frame dla wygenerowanego pose, domyślnie "map".
-   *
-   * Wyjścia:
-   * - predock_pose: dummy pose ustawiony dokładnie w shelf_center,
-   * - dock_pose: dummy pose ustawiony dokładnie w shelf_center.
-   */
-  static BT::PortsList providedPorts();
-
-  /**
-   * @brief Jednorazowe wykonanie dummy compute.
-   *
-   * Funkcja:
-   * - pobiera shelf_center,
-   * - buduje PoseStamped z yaw = 0,
-   * - ustawia predock_pose i dock_pose,
-   * - zwraca SUCCESS.
-   */
-  BT::NodeStatus tick() override;
-  bool initializeRosNode();
-
-private:
-  rclcpp::Node::SharedPtr node_;
-};
-
-/**
- * @brief Dummy node symulujący docking do shelfa.
- *
- * Ten node ma udawać realny docking:
- * - loguje start dockingu,
- * - czeka określony czas,
- * - zwraca SUCCESS.
- *
- * Dzięki temu możesz sprawdzić:
- * - czy po predocku drzewo przechodzi do dockingu,
- * - czy callbacki / porty / przejścia w BT są poprawne,
- * - czy dalsze nody wykonują się w odpowiedniej kolejności.
- */
 class DockToShelf : public BT::StatefulActionNode {
 public:
   /**

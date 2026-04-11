@@ -143,7 +143,37 @@ target_compile_features(rb1_validate_shelf_candidate_bt_node PUBLIC cxx_std_17)
 target_compile_definitions(rb1_validate_shelf_candidate_bt_node PRIVATE BT_PLUGIN_EXPORT)
 
 # -------------------------------
-# Plugin 4: Remaining dummy mission nodes
+# Plugin 4: ComputePreDockPose
+# -------------------------------
+add_library(rb1_compute_pre_dock_pose_bt_node SHARED
+  src/compute_pre_dock_pose.cpp
+)
+
+target_include_directories(rb1_compute_pre_dock_pose_bt_node
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+
+ament_target_dependencies(rb1_compute_pre_dock_pose_bt_node
+  rclcpp
+  geometry_msgs
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+  behaviortree_cpp_v3
+  nav2_util
+)
+
+target_link_libraries(rb1_compute_pre_dock_pose_bt_node
+  rb1_shelf_scan_utils
+)
+
+target_compile_features(rb1_compute_pre_dock_pose_bt_node PUBLIC cxx_std_17)
+target_compile_definitions(rb1_compute_pre_dock_pose_bt_node PRIVATE BT_PLUGIN_EXPORT)
+
+# -------------------------------
+# Plugin 5: Remaining dummy mission nodes
 # -------------------------------
 add_library(rb1_dummy_mission_bt_nodes SHARED
   src/dummy_mission_nodes.cpp
@@ -179,6 +209,7 @@ install(
     rb1_patrol_until_candidate_bt_node
     rb1_init_shelf_mission_bt_node
     rb1_validate_shelf_candidate_bt_node
+    rb1_compute_pre_dock_pose_bt_node
     rb1_dummy_mission_bt_nodes
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
@@ -192,6 +223,7 @@ ament_export_libraries(
   rb1_patrol_until_candidate_bt_node
   rb1_init_shelf_mission_bt_node
   rb1_validate_shelf_candidate_bt_node
+  rb1_compute_pre_dock_pose_bt_node
   rb1_dummy_mission_bt_nodes
 )
 ament_export_dependencies(
