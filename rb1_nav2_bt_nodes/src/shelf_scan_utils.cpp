@@ -1,6 +1,7 @@
 #include "rb1_nav2_bt_nodes/shelf_scan_utils.hpp"
 
 #include <geometry_msgs/msg/point_stamped.hpp>
+#include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2_ros/buffer.h>
 
@@ -15,9 +16,7 @@ namespace rb1_bt::scan_utils {
 namespace {
 
 // Checks whether a single LaserScan reading can be used for
-// clustering/detection. It rejects out-of-bounds indices, non-finite values,
-// sensor-invalid ranges, points beyond the configured detection distance, and
-// low-intensity returns.
+// clustering/detection.
 bool isMeasurementValid(const sensor_msgs::msg::LaserScan &scan, int index,
                         const ShelfDetectorParams &params) {
   if (index < 0 || index >= static_cast<int>(scan.ranges.size())) {
@@ -51,7 +50,27 @@ bool isMeasurementValid(const sensor_msgs::msg::LaserScan &scan, int index,
 
 } // namespace
 
-// Converts a polar LiDAR measurement (range, angle) into a 2D Cartesian point.
+// Builds a PoseStamped from a SimplePose2D waypoint.
+geometry_msgs::msg::PoseStamped
+buildPoseStampedFromWaypoint(const SimplePose2D &waypoint,
+                             const std::string &frame_id,
+                             const rclcpp::Time &stamp) {
+  geometry_msgs::msg::PoseStamped pose;
+  pose.header.frame_id = frame_id;
+  pose.header.stamp = stamp;
+
+  pose.pose.position.x = waypoint.x;
+  pose.pose.position.y = waypoint.y;
+  pose.pose.position.z = 0.0;
+
+  tf2::Quaternion q;
+  q.setRPY(0.0, 0.0, waypoint.yaw);
+  pose.pose.orientation = tf2::toMsg(q);
+
+  return pose;
+}
+
+// Converts a polar LiDAR measurement into a 2D Cartesian point.
 Point2D polarToCartesian(double range, double angle_rad) {
   Point2D point;
   point.x = range * std::cos(angle_rad);
@@ -59,8 +78,7 @@ Point2D polarToCartesian(double range, double angle_rad) {
   return point;
 }
 
-// Clamps a requested scan index window into valid bounds and ensures start <=
-// end.
+// Clamps a scan index window into valid bounds.
 bool normalizeWindow(int requested_start_idx, int requested_end_idx,
                      int scan_size, int &normalized_start_idx,
                      int &normalized_end_idx) {
@@ -80,19 +98,18 @@ bool normalizeWindow(int requested_start_idx, int requested_end_idx,
   return normalized_start_idx <= normalized_end_idx;
 }
 
-// Returns the 2D Euclidean distance between two internal Point2D values.
+// Returns the 2D distance between two Point2D values.
 double distance2D(const Point2D &a, const Point2D &b) {
   return std::hypot(a.x - b.x, a.y - b.y);
 }
 
-// Returns the 2D Euclidean distance between two ROS geometry points.
+// Returns the 2D distance between two geometry points.
 double distance2D(const geometry_msgs::msg::Point &a,
                   const geometry_msgs::msg::Point &b) {
   return std::hypot(a.x - b.x, a.y - b.y);
 }
 
 // Computes the average of a list of geometry points.
-// If the input is empty, it returns a zero-initialized point.
 geometry_msgs::msg::Point
 averageGeometryPoints(const std::vector<geometry_msgs::msg::Point> &points) {
   geometry_msgs::msg::Point avg;
@@ -119,8 +136,6 @@ averageGeometryPoints(const std::vector<geometry_msgs::msg::Point> &points) {
 }
 
 // Extracts contiguous point clusters from a scan index window.
-// A new cluster starts when a measurement is invalid or the gap between
-// consecutive points is larger than the configured tolerance.
 std::vector<ScanCluster>
 extractClustersFromIndexWindow(const sensor_msgs::msg::LaserScan &scan,
                                int start_idx, int end_idx,
@@ -228,8 +243,6 @@ bool transformPointToFrame(const tf2_ros::Buffer &tf_buffer,
 }
 
 // Transforms a 2D point from one frame into another.
-// It first tries the exact timestamp, and can optionally fall back
-// to the latest available transform if configured to do so.
 bool transformPointToFrame(
     const tf2_ros::Buffer &tf_buffer, const std::string &source_frame,
     const std::string &target_frame, const rclcpp::Time &stamp,
@@ -290,9 +303,9 @@ bool transformPointToFrame(
   }
 }
 
+/*
 '''
-    // Finds the cluster in the given scan window whose transformed centroid
-    // is closest to a reference point in the target frame.
+    // Finds the closest transformed cluster in the given scan window.
     bool
     findClosestTransformedClusterInWindow(
         const sensor_msgs::msg::LaserScan &scan, int start_idx, int end_idx,
@@ -335,19 +348,16 @@ bool transformPointToFrame(
 
   return best_dist <= max_match_distance;
 }
-'''
 
-    // Looks for a shelf-like candidate made of two clusters whose spacing
-    // matches the expected shelf leg separation, then returns the best-scoring
-    // pair.
-    std::optional<ShelfCandidateDetection>
-    detectShelfCandidateInWindow(const sensor_msgs::msg::LaserScan &scan,
-                                 int start_idx, int end_idx,
-                                 const ShelfDetectorParams &params,
-                                 const tf2_ros::Buffer &tf_buffer,
-                                 const std::string &target_frame,
-                                 const rclcpp::Time &transform_time,
-                                 const rclcpp::Logger &logger) {
+'''
+*/
+
+// Finds the best shelf-like pair of clusters in the given scan window.
+std::optional<ShelfCandidateDetection> detectShelfCandidateInWindow(
+    const sensor_msgs::msg::LaserScan &scan, int start_idx, int end_idx,
+    const ShelfDetectorParams &params, const tf2_ros::Buffer &tf_buffer,
+    const std::string &target_frame, const rclcpp::Time &transform_time,
+    const rclcpp::Logger &logger) {
   const auto clusters =
       extractClustersFromIndexWindow(scan, start_idx, end_idx, params);
 
