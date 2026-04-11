@@ -6,7 +6,7 @@
       <Sequence name="FindCarryShelfMission">
 
         <InitShelfMission
-          patrol_waypoints_input="0.0,0.45,1.57; 1.5,0.45,0.0; 2.8,0.45,0.0; 3.4,0.4,0.0; 3.4,0.0,0.0; 5.7,0.0,0.0; 5.7,0.0,-3.14; 4.3,-0.4,-3.14; 3.25,-0.4,-3.14; 2.20,-0.4,-3.14; 0.6,-0.4,-3.14; 0.6,-3.0,1.55; 0.5,0.0,-3.14; 0.0,0.0,0.0"
+          patrol_waypoints_input="3.4,0.0,0.0; 5.7,0.0,0.0; 5.7,0.0,-3.14; 4.3,-0.4,-3.14; 3.25,-0.4,-3.14; 2.20,-0.4,-3.14; 0.6,-0.4,-3.14; 0.6,-3.0,1.55; 0.5,0.0,-3.14; 0.0,0.0,0.0"
           dropoff_waypoint="0.0,0.0,0.0"
           target_frame="map"
           patrol_waypoints="{patrol_waypoints}"
@@ -41,16 +41,40 @@
           candidate_center="{candidate_center}"
           candidate_left_leg="{candidate_left_leg}"
           candidate_right_leg="{candidate_right_leg}"
-          candidate_confidence="{candidate_confidence}" />
+          candidate_confidence="{candidate_confidence}"
+          candidate_window="{candidate_window}" />
 
         <ValidateShelfCandidate
           candidate_center="{candidate_center}"
           candidate_left_leg="{candidate_left_leg}"
           candidate_right_leg="{candidate_right_leg}"
+
+          scan_topic="/scan"
+          cmd_vel_topic="/diffbot_base_controller/cmd_vel_unstamped"
+          target_frame="map"
+
+          left_window_start_idx="55"
+          left_window_end_idx="305"
+          right_window_start_idx="775"
+          right_window_end_idx="1025"
+
+          expected_leg_spacing="0.65"
+          leg_spacing_tolerance="0.09"
+          cluster_gap_tolerance="0.07"
+          intensity_threshold="7500.0"
+          max_detection_range="2.5"
+          min_cluster_points="4"
+          min_consecutive_hits="3"
+          stable_hit_distance_tol="0.18"
+          candidate_match_distance_tol="0.28"
+          stop_settle_time="0.40"
+          wait_duration="10.0"
+          max_scan_age="0.90"
+
           shelf_center="{shelf_center}"
           shelf_left_leg="{shelf_left_leg}"
           shelf_right_leg="{shelf_right_leg}"
-          wait_duration="5.0" />
+          candidate_window="{candidate_window}" />
 
         <ComputePreDockPose
           shelf_center="{shelf_center}"
@@ -58,7 +82,6 @@
           predock_pose="{predock_pose}"
           dock_pose="{dock_pose}" />
 
-        <!-- NAVIGATE TO PREDOCK -->
         <RecoveryNode number_of_retries="6" name="NavigateToPredockRecovery">
           <PipelineSequence name="NavigateToPredockWithReplanning">
 
@@ -88,7 +111,6 @@
 
         <LiftShelf />
 
-        <!-- NAVIGATE TO DROPOFF -->
         <RecoveryNode number_of_retries="6" name="NavigateToDropoffRecovery">
           <PipelineSequence name="NavigateToDropoffWithReplanning">
 
@@ -130,3 +152,12 @@
   </BehaviorTree>
 
 </root>
+
+
+<!--
+
+0.0,0.40,1.57; 1.5,0.40,0.0; 2.8,0.40,0.0; 3.4,0.4,0.0; 
+
+
+
+-->

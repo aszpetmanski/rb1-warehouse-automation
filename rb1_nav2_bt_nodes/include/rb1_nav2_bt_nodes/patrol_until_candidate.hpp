@@ -219,20 +219,6 @@ private:
   double pointDistance2D(const geometry_msgs::msg::Point &a,
                          const geometry_msgs::msg::Point &b) const;
 
-  /**
-   * @brief Buduje PoseStamped z prostego waypointu 2D.
-   *
-   * Funkcja mapuje `(x, y, yaw)` na pełny `geometry_msgs::msg::PoseStamped`
-   * w ramce docelowej (`map_frame_`).
-   *
-   * Jest wydzielona, bo:
-   * - to naturalna operacja transformacji danych wejściowych,
-   * - chcemy ją testować i utrzymać poza dłuższą logiką
-   * `sendCurrentWaypointGoal()`.
-   */
-  geometry_msgs::msg::PoseStamped
-  buildPoseStampedFromWaypoint(const SimplePose2D &waypoint) const;
-
   bool initializeRosResources();
 
 private:
@@ -274,6 +260,8 @@ private:
   ShelfCandidateDetection last_candidate_;
   bool has_last_candidate_{false};
   int consecutive_hits_{0};
+  std::string last_candidate_window_;
+  std::string stable_candidate_window_;
 };
 
 } // namespace rb1_bt

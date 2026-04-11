@@ -26,8 +26,10 @@ def launch_setup(context, *args, **kwargs):
     )
 
     plugin_libs = [
-        # Twoje custom BT pluginy
+        # Custom BT pluginy
         lib_path('rb1_nav2_bt_nodes', 'librb1_patrol_until_candidate_bt_node.so'),
+        lib_path('rb1_nav2_bt_nodes', 'librb1_init_shelf_mission_bt_node.so'),
+        lib_path('rb1_nav2_bt_nodes', 'librb1_validate_shelf_candidate_bt_node.so'),
         lib_path('rb1_nav2_bt_nodes', 'librb1_dummy_mission_bt_nodes.so'),
 
         # Nav2 BT pluginy użyte w XML

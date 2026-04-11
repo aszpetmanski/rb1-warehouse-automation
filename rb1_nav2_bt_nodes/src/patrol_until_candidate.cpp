@@ -58,7 +58,8 @@ BT::PortsList PatrolUntilCandidate::providedPorts() {
       BT::OutputPort<geometry_msgs::msg::Point>("candidate_left_leg"),
       BT::OutputPort<geometry_msgs::msg::Point>("candidate_right_leg"),
       BT::OutputPort<geometry_msgs::msg::Point>("candidate_center"),
-      BT::OutputPort<double>("candidate_confidence")};
+      BT::OutputPort<double>("candidate_confidence"),
+      BT::OutputPort<std::string>("candidate_window")};
 }
 
 bool PatrolUntilCandidate::loadPorts() {
@@ -133,6 +134,8 @@ void PatrolUntilCandidate::resetRunState() {
   last_candidate_ = ShelfCandidateDetection{};
   has_last_candidate_ = false;
   consecutive_hits_ = 0;
+  last_candidate_window_.clear();
+  stable_candidate_window_.clear();
 }
 
 BT::NodeStatus PatrolUntilCandidate::onStart() {
@@ -187,6 +190,7 @@ BT::NodeStatus PatrolUntilCandidate::onRunning() {
       setOutput("candidate_right_leg",
                 stable_candidate_.right_leg_target_frame);
       setOutput("candidate_confidence", stable_candidate_.confidence);
+      setOutput("candidate_window", stable_candidate_window_);
 
       RCLCPP_INFO(node_->get_logger(), "PatrolUntilCandidate: stable shelf "
                                        "candidate found, canceling nav goal");
@@ -251,8 +255,8 @@ bool PatrolUntilCandidate::sendCurrentWaypointGoal() {
     return false;
   }
 
-  const auto target_pose =
-      buildPoseStampedFromWaypoint(patrol_waypoints_[current_waypoint_idx_]);
+  const auto target_pose = scan_utils::buildPoseStampedFromWaypoint(
+      patrol_waypoints_[current_waypoint_idx_], target_frame_, node_->now());
 
   NavigateToPose::Goal goal;
   goal.pose = target_pose;
@@ -309,19 +313,26 @@ PatrolUntilCandidate::detectCandidateFromLatestScan() {
       *tf_buffer_, target_frame_, node_->now(), node_->get_logger());
 
   if (left_detection && right_detection) {
-    return (left_detection->confidence >= right_detection->confidence)
-               ? left_detection
-               : right_detection;
+    if (left_detection->confidence >= right_detection->confidence) {
+      last_candidate_window_ = "left";
+      return left_detection;
+    } else {
+      last_candidate_window_ = "right";
+      return right_detection;
+    }
   }
 
   if (left_detection) {
+    last_candidate_window_ = "left";
     return left_detection;
   }
 
   if (right_detection) {
+    last_candidate_window_ = "right";
     return right_detection;
   }
 
+  last_candidate_window_.clear();
   return std::nullopt;
 }
 
@@ -330,12 +341,15 @@ bool PatrolUntilCandidate::updateStableHit(
   if (!detection.valid) {
     has_last_candidate_ = false;
     consecutive_hits_ = 0;
+    last_candidate_window_.clear();
+    stable_candidate_window_.clear();
     return false;
   }
 
   if (!has_last_candidate_) {
     last_candidate_ = detection;
     stable_candidate_ = detection;
+    stable_candidate_window_ = last_candidate_window_;
     has_last_candidate_ = true;
     consecutive_hits_ = 1;
     return false;
@@ -348,10 +362,12 @@ bool PatrolUntilCandidate::updateStableHit(
     consecutive_hits_++;
     last_candidate_ = detection;
     stable_candidate_ = detection;
+    stable_candidate_window_ = last_candidate_window_;
   } else {
     consecutive_hits_ = 1;
     last_candidate_ = detection;
     stable_candidate_ = detection;
+    stable_candidate_window_ = last_candidate_window_;
   }
 
   return consecutive_hits_ >= min_consecutive_hits_;
@@ -361,24 +377,6 @@ double PatrolUntilCandidate::pointDistance2D(
     const geometry_msgs::msg::Point &a,
     const geometry_msgs::msg::Point &b) const {
   return std::hypot(a.x - b.x, a.y - b.y);
-}
-
-geometry_msgs::msg::PoseStamped
-PatrolUntilCandidate::buildPoseStampedFromWaypoint(
-    const SimplePose2D &waypoint) const {
-  geometry_msgs::msg::PoseStamped pose;
-  pose.header.frame_id = target_frame_;
-  pose.header.stamp = node_->now();
-
-  pose.pose.position.x = waypoint.x;
-  pose.pose.position.y = waypoint.y;
-  pose.pose.position.z = 0.0;
-
-  tf2::Quaternion q;
-  q.setRPY(0.0, 0.0, waypoint.yaw);
-  pose.pose.orientation = tf2::toMsg(q);
-
-  return pose;
 }
 
 } // namespace rb1_bt
