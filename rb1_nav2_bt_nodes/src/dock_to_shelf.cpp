@@ -51,9 +51,9 @@ BT::PortsList DockToShelf::providedPorts() {
                                                "Validated shelf center"),
       BT::InputPort<std::string>("target_frame", std::string("map"),
                                  "Frame for docking geometry"),
-      BT::InputPort<double>("drive_distance", 0.85,
+      BT::InputPort<double>("drive_distance", 0.95,
                             "How far to drive forward during docking [m]"),
-      BT::InputPort<double>("forward_speed", 0.20,
+      BT::InputPort<double>("forward_speed", 0.15,
                             "Forward speed during docking [m/s]"),
       BT::InputPort<double>("yaw_gain", 1.5, "Yaw correction gain"),
       BT::InputPort<double>("max_angular_speed", 0.35,
@@ -71,8 +71,8 @@ BT::NodeStatus DockToShelf::tick() {
 
   geometry_msgs::msg::Point shelf_center;
   std::string target_frame = "map";
-  double drive_distance = 0.85;
-  double forward_speed = 0.20;
+  double drive_distance = 0.95;
+  double forward_speed = 0.15;
   double yaw_gain = 1.5;
   double max_angular_speed = 0.35;
   double control_rate = 20.0;

@@ -111,8 +111,8 @@
         <DockToShelf
           shelf_center="{shelf_center}"
           target_frame="map"
-          drive_distance="0.85"
-          forward_speed="0.20" />
+          drive_distance="0.95"
+          forward_speed="0.15" />
 
         <RecoveryNode number_of_retries="6" name="NavigateToDropoffRecovery">
           <PipelineSequence name="NavigateToDropoffWithReplanning">
