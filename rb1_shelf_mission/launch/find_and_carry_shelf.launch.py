@@ -40,6 +40,7 @@ def launch_setup(context, *args, **kwargs):
         lib_path('nav2_behavior_tree', 'libnav2_follow_path_action_bt_node.so'),
         lib_path('nav2_behavior_tree', 'libnav2_clear_costmap_service_bt_node.so'),
         lib_path('nav2_behavior_tree', 'libnav2_spin_action_bt_node.so'),
+        lib_path('nav2_behavior_tree', 'libnav2_back_up_action_bt_node.so'),
         lib_path('nav2_behavior_tree', 'libnav2_wait_action_bt_node.so'),
         lib_path('nav2_behavior_tree', 'libnav2_rate_controller_bt_node.so'),
         lib_path('nav2_behavior_tree', 'libnav2_recovery_node_bt_node.so'),

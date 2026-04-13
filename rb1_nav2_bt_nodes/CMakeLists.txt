@@ -221,6 +221,7 @@ target_include_directories(rb1_switch_nav2_mode_bt_node
 ament_target_dependencies(rb1_switch_nav2_mode_bt_node
   rclcpp
   std_srvs
+  nav2_msgs
   behaviortree_cpp_v3
 )
 

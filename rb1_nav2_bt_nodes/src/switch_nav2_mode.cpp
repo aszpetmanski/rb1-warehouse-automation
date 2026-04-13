@@ -1,6 +1,7 @@
 #include "rb1_nav2_bt_nodes/switch_nav2_mode.hpp"
 
 #include <behaviortree_cpp_v3/bt_factory.h>
+#include <nav2_msgs/srv/clear_entire_costmap.hpp>
 #include <std_srvs/srv/empty.hpp>
 
 #include <chrono>
@@ -149,7 +150,8 @@ bool Nav2ModeSwitchBase::setRemoteParams(
 }
 
 bool Nav2ModeSwitchBase::clearCostmap(const std::string &service_name) {
-  auto client = helper_node_->create_client<std_srvs::srv::Empty>(service_name);
+  auto client = helper_node_->create_client<nav2_msgs::srv::ClearEntireCostmap>(
+      service_name);
 
   if (!client->wait_for_service(3s)) {
     RCLCPP_ERROR(helper_node_->get_logger(),
@@ -158,7 +160,8 @@ bool Nav2ModeSwitchBase::clearCostmap(const std::string &service_name) {
     return false;
   }
 
-  auto request = std::make_shared<std_srvs::srv::Empty::Request>();
+  auto request =
+      std::make_shared<nav2_msgs::srv::ClearEntireCostmap::Request>();
   auto future = client->async_send_request(request);
 
   rclcpp::executors::SingleThreadedExecutor exec;
@@ -189,7 +192,7 @@ BT::PortsList SwitchToCarryMode::providedPorts() {
   ports.insert(BT::InputPort<std::string>(
       "carry_footprint",
       "Polygon footprint string for carry mode, e.g. "
-      "[[0.61,0.45],[0.61,-0.45],[-0.38,-0.45],[-0.38,0.45]]"));
+      "[[0.47,0.45],[0.47,-0.45],[-0.38,-0.45],[-0.38,0.45]]"));
 
   return ports;
 }
@@ -400,11 +403,6 @@ BT::NodeStatus SwitchToNormalMode::tick() {
   getInput("clear_costmaps", clear_costmaps);
   getInput("post_param_wait_sec", post_param_wait_sec);
   getInput("post_clear_wait_sec", post_clear_wait_sec);
-
-  // Uwaga:
-  // Ten node zakłada, że Nav2 wystartował w trybie radius-only
-  // (czyli bez statycznego footprint w YAML), więc dynamiczny update
-  // robot_radius dalej przełącza footprint na koło.
 
   std::vector<rclcpp::Parameter> local_params;
   local_params.emplace_back("footprint", std::string("[]"));
