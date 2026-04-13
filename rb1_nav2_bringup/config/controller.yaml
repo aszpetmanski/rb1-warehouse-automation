@@ -3,7 +3,7 @@ controller_server:
     use_sim_time: True
     controller_frequency: 20.0
     failure_tolerance: 0.3
-    odom_topic: /diffbot_base_controller/odom
+    odom_topic: /odom
 
     # Velocity thresholds
     min_x_velocity_threshold: 0.001

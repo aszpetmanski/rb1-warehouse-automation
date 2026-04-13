@@ -1,0 +1,9 @@
+<root main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <Sequence name="StartupLocalization">
+      <ReinitializeGlobalLocalization service_name="reinitialize_global_localization"/>
+      <Spin spin_dist="6.28"/>
+      <Wait wait_duration="1.0"/>
+    </Sequence>
+  </BehaviorTree>
+</root>

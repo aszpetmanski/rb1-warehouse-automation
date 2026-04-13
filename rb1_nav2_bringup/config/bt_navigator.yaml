@@ -5,7 +5,7 @@ bt_navigator:
     # Frames and odometry
     global_frame: map
     robot_base_frame: robot_base_footprint
-    odom_topic: /diffbot_base_controller/odom
+    odom_topic: /odom
 
     # Timing
     bt_loop_duration: 10

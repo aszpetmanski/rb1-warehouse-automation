@@ -30,4 +30,10 @@ install(
   DESTINATION share/${PROJECT_NAME}
 )
 
+install(
+  PROGRAMS
+    scripts/startup_localizer.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 ament_package()

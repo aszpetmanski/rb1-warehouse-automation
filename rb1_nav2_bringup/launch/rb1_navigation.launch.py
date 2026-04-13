@@ -24,6 +24,7 @@ def launch_setup(context, *args, **kwargs):
     behavior_config = os.path.join(pkg_share, 'config', f'recoveries{suffix}.yaml')
     bt_config = os.path.join(pkg_share, 'config', f'bt_navigator{suffix}.yaml')
     rviz_config = os.path.join(pkg_share, 'rviz', f'localization{suffix}.rviz')
+    startup_bt = os.path.join(pkg_share, 'config', 'startup_localization.xml')
 
     return [
         Node(
@@ -95,6 +96,24 @@ def launch_setup(context, *args, **kwargs):
             parameters=[
                 bt_config,
                 {'use_sim_time': use_sim_time},
+            ],
+        ),
+
+        Node(
+            package='rb1_nav2_bringup',
+            executable='startup_localizer.py',
+            name='startup_localizer',
+            output='screen',
+            parameters=[{'use_sim_time': use_sim_time}],
+            arguments=[
+                '--reinit-service', '/reinitialize_global_localization',
+                '--spin-action', '/spin',
+                '--yaw', str(-2.0 * 3.141592653589793),
+                '--spin-time-allowance', '30.0',
+                '--service-timeout', '120.0',
+                '--action-timeout', '120.0',
+                '--reinit-response-timeout', '10.0',
+                '--spin-result-timeout', '90.0',
             ],
         ),
 
