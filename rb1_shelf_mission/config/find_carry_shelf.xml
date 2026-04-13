@@ -119,11 +119,11 @@
           straight_when_center_dist_below="0.10" />
 
         <SwitchToCarryMode
-          carry_footprint="[[0.46,0.42],[0.46,-0.42],[-0.36,-0.42],[-0.36,0.42]]"
+          carry_footprint="[[0.46,0.38],[0.46,-0.38],[-0.36,-0.38],[-0.36,0.38]]"
           footprint_padding="0.01"
-          local_inflation_radius="0.60"
+          local_inflation_radius="0.55"
           local_cost_scaling_factor="4.0"
-          global_inflation_radius="0.70"
+          global_inflation_radius="0.65"
           global_cost_scaling_factor="6.0" />
         
         <CustomBackUp
