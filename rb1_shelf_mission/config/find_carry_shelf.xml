@@ -112,7 +112,11 @@
           shelf_center="{shelf_center}"
           target_frame="map"
           drive_distance="0.95"
-          forward_speed="0.15" />
+          forward_speed="0.15"
+          yaw_gain="1.5"
+          max_angular_speed="0.35"
+          control_rate="20.0"
+          straight_when_center_dist_below="0.10" />
 
         <RecoveryNode number_of_retries="6" name="NavigateToDropoffRecovery">
           <PipelineSequence name="NavigateToDropoffWithReplanning">

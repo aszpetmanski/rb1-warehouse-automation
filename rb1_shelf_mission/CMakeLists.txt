@@ -38,7 +38,7 @@ endif()
 install(
   DIRECTORY
     launch
-    rviz
+    #rviz
     config
   DESTINATION share/${PROJECT_NAME}
 )
