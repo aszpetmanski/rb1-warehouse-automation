@@ -7,7 +7,7 @@
 
         <InitShelfMission
           patrol_waypoints_input="3.4,0.0,0.0; 5.7,0.0,0.0; 5.7,0.0,-3.14; 4.3,-0.4,-3.14; 3.25,-0.4,-3.14; 2.20,-0.4,-3.14; 0.6,-0.4,-3.14; 0.6,-3.0,1.55; 0.5,0.0,-3.14; 0.0,0.0,0.0"
-          dropoff_waypoint="0.0,0.0,0.0"
+          dropoff_waypoint="2.4,1.1,-1.57"
           target_frame="map"
           patrol_waypoints="{patrol_waypoints}"
           dropoff_pose="{dropoff_pose}"
@@ -119,18 +119,19 @@
           straight_when_center_dist_below="0.10" />
 
         <SwitchToCarryMode
-          carry_footprint="[[0.47,0.45],[0.47,-0.45],[-0.38,-0.45],[-0.38,0.45]]"
+          carry_footprint="[[0.46,0.42],[0.46,-0.42],[-0.36,-0.42],[-0.36,0.42]]"
           footprint_padding="0.01"
-          local_inflation_radius="0.70"
+          local_inflation_radius="0.60"
           local_cost_scaling_factor="4.0"
-          global_inflation_radius="0.90"
+          global_inflation_radius="0.70"
           global_cost_scaling_factor="6.0" />
         
-        <BackUp
-          backup_dist="-0.95"
-          backup_speed="0.10"
-          time_allowance="10.0"
-          server_name="backup" />
+        <CustomBackUp
+          distance="1.05"
+          speed="0.10"
+          time_allowance="15.0"
+          cmd_vel_topic="/diffbot_base_controller/cmd_vel_unstamped"
+          odom_topic="/odom" />
 
         <RecoveryNode number_of_retries="6" name="NavigateToDropoffRecovery">
           <PipelineSequence name="NavigateToDropoffWithReplanning">
