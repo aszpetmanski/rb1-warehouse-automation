@@ -2,6 +2,7 @@
 
 #include <geometry_msgs/msg/point_stamped.hpp>
 #include <tf2/LinearMath/Quaternion.h>
+#include <tf2/utils.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 #include <tf2_ros/buffer.h>
 
@@ -95,6 +96,16 @@ bool normalizeWindow(int requested_start_idx, int requested_end_idx,
   return normalized_start_idx <= normalized_end_idx;
 }
 
+double normalizeAngle(double angle) {
+  while (angle > M_PI) {
+    angle -= 2.0 * M_PI;
+  }
+  while (angle < -M_PI) {
+    angle += 2.0 * M_PI;
+  }
+  return angle;
+}
+
 // Returns the 2D distance between two Point2D values.
 double distance2D(const Point2D &a, const Point2D &b) {
   return std::hypot(a.x - b.x, a.y - b.y);
@@ -103,6 +114,18 @@ double distance2D(const Point2D &a, const Point2D &b) {
 // Returns the 2D distance between two geometry points.
 double distance2D(const geometry_msgs::msg::Point &a,
                   const geometry_msgs::msg::Point &b) {
+  return std::hypot(a.x - b.x, a.y - b.y);
+}
+
+double distance2D(const SimplePose2D &a, const SimplePose2D &b) {
+  return std::hypot(a.x - b.x, a.y - b.y);
+}
+
+double distance2D(const SimplePose2D &a, const geometry_msgs::msg::Point &b) {
+  return std::hypot(a.x - b.x, a.y - b.y);
+}
+
+double distance2D(const geometry_msgs::msg::Point &a, const SimplePose2D &b) {
   return std::hypot(a.x - b.x, a.y - b.y);
 }
 
@@ -152,11 +175,11 @@ geometry_msgs::msg::Quaternion yawToQuaternion(double yaw) {
 
 // Gets current robot origin position in target_frame by transforming
 // (0,0,0) from robot_frame.
-bool getRobotPositionInFrame(const tf2_ros::Buffer &tf_buffer,
-                             const std::string &target_frame,
-                             geometry_msgs::msg::Point &robot_position_out,
-                             const rclcpp::Logger &logger,
-                             const std::string &robot_frame) {
+bool getRobotPoseInFrame(const tf2_ros::Buffer &tf_buffer,
+                         const std::string &target_frame,
+                         SimplePose2D &robot_pose_out,
+                         const rclcpp::Logger &logger,
+                         const std::string &robot_frame) {
   geometry_msgs::msg::PointStamped in_point;
   geometry_msgs::msg::PointStamped out_point;
 
@@ -166,18 +189,24 @@ bool getRobotPositionInFrame(const tf2_ros::Buffer &tf_buffer,
   in_point.point.y = 0.0;
   in_point.point.z = 0.0;
 
-  if (robot_frame == target_frame) {
-    robot_position_out = in_point.point;
-    return true;
-  }
-
   try {
-    out_point =
-        tf_buffer.transform(in_point, target_frame, tf2::durationFromSec(0.1));
-    robot_position_out = out_point.point;
+    if (robot_frame == target_frame) {
+      robot_pose_out.x = 0.0;
+      robot_pose_out.y = 0.0;
+    } else {
+      out_point = tf_buffer.transform(in_point, target_frame,
+                                      tf2::durationFromSec(0.1));
+      robot_pose_out.x = out_point.point.x;
+      robot_pose_out.y = out_point.point.y;
+    }
+
+    const auto tf = tf_buffer.lookupTransform(target_frame, robot_frame,
+                                              tf2::TimePointZero);
+    robot_pose_out.yaw = tf2::getYaw(tf.transform.rotation);
+
     return true;
   } catch (const tf2::TransformException &ex) {
-    RCLCPP_WARN(logger, "getRobotPositionInFrame failed from '%s' to '%s': %s",
+    RCLCPP_WARN(logger, "getRobotPoseInFrame failed from '%s' to '%s': %s",
                 robot_frame.c_str(), target_frame.c_str(), ex.what());
     return false;
   }

@@ -22,11 +22,17 @@ Point2D polarToCartesian(double range, double angle_rad);
 bool normalizeWindow(int requested_start_idx, int requested_end_idx,
                      int scan_size, int &normalized_start_idx,
                      int &normalized_end_idx);
+double normalizeAngle(double angle);
 
 double distance2D(const Point2D &a, const Point2D &b);
 
 double distance2D(const geometry_msgs::msg::Point &a,
                   const geometry_msgs::msg::Point &b);
+double distance2D(const SimplePose2D &a, const SimplePose2D &b);
+
+double distance2D(const SimplePose2D &a, const geometry_msgs::msg::Point &b);
+
+double distance2D(const geometry_msgs::msg::Point &a, const SimplePose2D &b);
 
 geometry_msgs::msg::Point
 averageGeometryPoints(const std::vector<geometry_msgs::msg::Point> &points);
@@ -37,11 +43,11 @@ midpointGeometryPoints(const geometry_msgs::msg::Point &a,
 
 geometry_msgs::msg::Quaternion yawToQuaternion(double yaw);
 
-bool getRobotPositionInFrame(const tf2_ros::Buffer &tf_buffer,
-                             const std::string &target_frame,
-                             geometry_msgs::msg::Point &robot_position_out,
-                             const rclcpp::Logger &logger,
-                             const std::string &robot_frame = "robot_base_link");
+bool getRobotPoseInFrame(const tf2_ros::Buffer &tf_buffer,
+                         const std::string &target_frame,
+                         SimplePose2D &robot_pose_out,
+                         const rclcpp::Logger &logger,
+                         const std::string &robot_frame = "robot_base_link");
 
 geometry_msgs::msg::PoseStamped
 buildPoseStampedFromWaypoint(const SimplePose2D &waypoint,

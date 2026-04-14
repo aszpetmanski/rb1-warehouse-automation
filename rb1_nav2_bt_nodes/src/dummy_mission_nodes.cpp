@@ -9,30 +9,6 @@
 
 namespace rb1_bt {
 
-PlaceShelf::PlaceShelf(const std::string &name,
-                       const BT::NodeConfiguration &config)
-    : BT::SyncActionNode(name, config) {}
-
-bool PlaceShelf::initializeRosNode() {
-  if (!node_) {
-    config().blackboard->get<rclcpp::Node::SharedPtr>("node", node_);
-    if (!node_) {
-      throw std::runtime_error("PlaceShelf: missing ROS node on blackboard");
-    }
-  }
-
-  return true;
-}
-
-BT::PortsList PlaceShelf::providedPorts() { return {}; }
-
-BT::NodeStatus PlaceShelf::tick() {
-  initializeRosNode();
-
-  RCLCPP_INFO(node_->get_logger(), "PlaceShelf: dummy SUCCESS");
-  return BT::NodeStatus::SUCCESS;
-}
-
 StopRobot::StopRobot(const std::string &name,
                      const BT::NodeConfiguration &config)
     : BT::SyncActionNode(name, config) {}
@@ -60,6 +36,5 @@ BT::NodeStatus StopRobot::tick() {
 } // namespace rb1_bt
 
 BT_REGISTER_NODES(factory) {
-  factory.registerNodeType<rb1_bt::PlaceShelf>("PlaceShelf");
   factory.registerNodeType<rb1_bt::StopRobot>("StopRobot");
 }

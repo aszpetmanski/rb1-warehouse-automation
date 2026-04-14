@@ -105,9 +105,9 @@ BT::NodeStatus DockToShelf::tick() {
     return BT::NodeStatus::FAILURE;
   }
 
-  geometry_msgs::msg::Point start_position;
-  if (!scan_utils::getRobotPositionInFrame(
-          *tf_buffer_, target_frame, start_position, node_->get_logger())) {
+  SimplePose2D start_pose;
+  if (!scan_utils::getRobotPoseInFrame(*tf_buffer_, target_frame, start_pose,
+                                       node_->get_logger())) {
     RCLCPP_ERROR(node_->get_logger(),
                  "DockToShelf: failed to get robot start position");
     return BT::NodeStatus::FAILURE;
@@ -126,24 +126,23 @@ BT::NodeStatus DockToShelf::tick() {
   bool straight_mode = false;
 
   while (rclcpp::ok()) {
-    geometry_msgs::msg::Point robot_position;
-    if (!scan_utils::getRobotPositionInFrame(
-            *tf_buffer_, target_frame, robot_position, node_->get_logger())) {
+    SimplePose2D robot_pose;
+    if (!scan_utils::getRobotPoseInFrame(*tf_buffer_, target_frame, robot_pose,
+                                         node_->get_logger())) {
       publishStop();
       RCLCPP_ERROR(node_->get_logger(),
                    "DockToShelf: failed to refresh robot position");
       return BT::NodeStatus::FAILURE;
     }
 
-    const double traveled =
-        scan_utils::distance2D(robot_position, start_position);
+    const double traveled = scan_utils::distance2D(robot_pose, start_pose);
 
     if (traveled >= drive_distance) {
       break;
     }
 
     const double dist_to_center =
-        scan_utils::distance2D(robot_position, shelf_center);
+        scan_utils::distance2D(robot_pose, shelf_center);
 
     if (!straight_mode && dist_to_center <= straight_when_center_dist_below) {
       straight_mode = true;
@@ -189,8 +188,8 @@ BT::NodeStatus DockToShelf::tick() {
           std::atan2(base_x_axis_target.point.y - base_origin_target.point.y,
                      base_x_axis_target.point.x - base_origin_target.point.x);
 
-      const double desired_yaw = std::atan2(shelf_center.y - robot_position.y,
-                                            shelf_center.x - robot_position.x);
+      const double desired_yaw = std::atan2(shelf_center.y - robot_pose.y,
+                                            shelf_center.x - robot_pose.x);
 
       double yaw_error = desired_yaw - robot_yaw;
       while (yaw_error > M_PI) {

@@ -112,17 +112,17 @@ BT::NodeStatus ComputePreDockPose::tick() {
   candidate_b.y = shelf_center.y - predock_offset * ny;
   candidate_b.z = shelf_center.z;
 
-  geometry_msgs::msg::Point robot_position;
-  if (!scan_utils::getRobotPositionInFrame(
-          *tf_buffer_, target_frame, robot_position, node_->get_logger())) {
+  SimplePose2D robot_pose;
+  if (!scan_utils::getRobotPoseInFrame(*tf_buffer_, target_frame, robot_pose,
+                                       node_->get_logger())) {
     RCLCPP_ERROR(node_->get_logger(),
-                 "ComputePreDockPose: failed to get robot position in '%s'",
+                 "ComputePreDockPose: failed to get robot pose in '%s'",
                  target_frame.c_str());
     return BT::NodeStatus::FAILURE;
   }
 
-  const double dist_a = scan_utils::distance2D(candidate_a, robot_position);
-  const double dist_b = scan_utils::distance2D(candidate_b, robot_position);
+  const double dist_a = scan_utils::distance2D(candidate_a, robot_pose);
+  const double dist_b = scan_utils::distance2D(candidate_b, robot_pose);
 
   const geometry_msgs::msg::Point chosen =
       (dist_a <= dist_b) ? candidate_a : candidate_b;
@@ -143,11 +143,11 @@ BT::NodeStatus ComputePreDockPose::tick() {
   RCLCPP_INFO(node_->get_logger(),
               "ComputePreDockPose: SUCCESS "
               "L=[%.3f, %.3f] C=[%.3f, %.3f] R=[%.3f, %.3f] "
-              "robot=[%.3f, %.3f] predock=[%.3f, %.3f] yaw=%.3f",
+              "robot=[%.3f, %.3f, yaw=%.3f] predock=[%.3f, %.3f] yaw=%.3f",
               shelf_left_leg.x, shelf_left_leg.y, shelf_center.x,
               shelf_center.y, shelf_right_leg.x, shelf_right_leg.y,
-              robot_position.x, robot_position.y, predock_pose.pose.position.x,
-              predock_pose.pose.position.y,
+              robot_pose.x, robot_pose.y, robot_pose.yaw,
+              predock_pose.pose.position.x, predock_pose.pose.position.y,
               tf2::getYaw(predock_pose.pose.orientation));
 
   return BT::NodeStatus::SUCCESS;

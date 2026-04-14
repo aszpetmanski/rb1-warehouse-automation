@@ -7,7 +7,7 @@
 
         <InitShelfMission
           patrol_waypoints_input="3.4,0.0,0.0; 5.7,0.0,0.0; 5.7,0.0,-3.14; 4.3,-0.4,-3.14; 3.25,-0.4,-3.14; 2.20,-0.4,-3.14; 0.6,-0.4,-3.14; 0.6,-3.0,1.55; 0.5,0.0,-3.14; 0.0,0.0,0.0"
-          dropoff_waypoint="2.4,1.1,-1.57"
+          dropoff_waypoint="2.4,0.05,1.57"
           target_frame="map"
           patrol_waypoints="{patrol_waypoints}"
           dropoff_pose="{dropoff_pose}"
@@ -127,7 +127,7 @@
           global_cost_scaling_factor="6.0" />
         
         <CustomBackUp
-          distance="1.05"
+          distance="1.00"
           speed="0.10"
           time_allowance="15.0"
           cmd_vel_topic="/diffbot_base_controller/cmd_vel_unstamped"
@@ -158,7 +158,50 @@
           </SequenceStar>
         </RecoveryNode>
 
-        <PlaceShelf />
+        <PlaceShelf
+          dropoff_pose="{dropoff_pose}"
+          target_frame="map"
+          drive_distance="0.95"
+          forward_speed="0.10"
+          yaw_gain="2.0"
+          max_angular_speed="0.35"
+          yaw_tolerance="0.03"
+          control_rate="20.0"
+          align_timeout="18.0"
+          motion_timeout="22.0"
+          stop_settle_time="0.30"
+          elevator_trigger_count="4"
+          elevator_trigger_interval="0.15"
+          cmd_vel_topic="/diffbot_base_controller/cmd_vel_unstamped"
+          elevator_down_topic="/elevator_down" />
+
+        <SwitchToNormalMode
+          normal_robot_radius="0.27"
+          footprint_padding="0.01"
+          local_inflation_radius="0.29"
+          local_cost_scaling_factor="2.0"
+          global_inflation_radius="0.29"
+          global_cost_scaling_factor="2.0"
+          local_footprint_clearing_enabled="true"
+          global_footprint_clearing_enabled="true"
+          clear_costmaps="true"
+          post_param_wait_sec="0.20"
+          post_clear_wait_sec="0.20"
+          local_costmap_node="/local_costmap/local_costmap"
+          global_costmap_node="/global_costmap/global_costmap"
+          local_clear_service="/local_costmap/clear_entirely_local_costmap"
+          global_clear_service="/global_costmap/clear_entirely_global_costmap"
+          local_inflation_layer_name="inflation_layer"
+          global_inflation_layer_name="inflation_layer"
+          local_clearing_layer_name="obstacle_layer"
+          global_clearing_layer_name="obstacle_layer" />
+
+        <CustomBackUp
+          distance="1.10"
+          speed="0.10"
+          time_allowance="15.0"
+          cmd_vel_topic="/diffbot_base_controller/cmd_vel_unstamped"
+          odom_topic="/odom" />
 
       </Sequence>
 

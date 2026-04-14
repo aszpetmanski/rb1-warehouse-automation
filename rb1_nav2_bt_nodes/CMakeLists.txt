@@ -281,6 +281,36 @@ ament_target_dependencies(rb1_custom_back_up_bt_node
 target_compile_features(rb1_custom_back_up_bt_node PUBLIC cxx_std_17)
 target_compile_definitions(rb1_custom_back_up_bt_node PRIVATE BT_PLUGIN_EXPORT)
 
+# -------------------------------
+# Plugin 8: PlaceShelf
+# -------------------------------
+add_library(rb1_place_shelf_bt_node SHARED
+  src/place_shelf.cpp
+)
+
+target_include_directories(rb1_place_shelf_bt_node
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+
+ament_target_dependencies(rb1_place_shelf_bt_node
+  rclcpp
+  std_msgs
+  geometry_msgs
+  sensor_msgs
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+  behaviortree_cpp_v3
+)
+target_link_libraries(rb1_place_shelf_bt_node
+  rb1_shelf_scan_utils
+)
+
+target_compile_features(rb1_place_shelf_bt_node PUBLIC cxx_std_17)
+target_compile_definitions(rb1_place_shelf_bt_node PRIVATE BT_PLUGIN_EXPORT)
+
 install(
   DIRECTORY include/
   DESTINATION include
@@ -296,6 +326,7 @@ install(
     rb1_dock_to_shelf_bt_node
     rb1_switch_nav2_mode_bt_node
 	rb1_custom_back_up_bt_node
+	rb1_place_shelf_bt_node
     rb1_dummy_mission_bt_nodes
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
@@ -313,6 +344,7 @@ ament_export_libraries(
   rb1_dock_to_shelf_bt_node
   rb1_switch_nav2_mode_bt_node
   rb1_custom_back_up_bt_node
+  rb1_place_shelf_bt_node
   rb1_dummy_mission_bt_nodes
 )
 ament_export_dependencies(
