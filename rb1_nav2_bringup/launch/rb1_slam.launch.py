@@ -67,13 +67,13 @@ def generate_launch_description():
         # ),
 
         # Optional RViz for REAL ROBOT
-        # Node(
-        #     package='rviz2',
-        #     executable='rviz2',
-        #     name='rviz2',
-        #     output='screen',
-        #     arguments=['-d', real_rviz_config],
-        #     parameters=[{'use_sim_time': False}],
-        #     condition=UnlessCondition(sim)
-        # ),
+        Node(
+            package='rviz2',
+            executable='rviz2',
+            name='rviz2',
+            output='screen',
+            arguments=['-d', real_rviz_config],
+            parameters=[{'use_sim_time': False}],
+            condition=UnlessCondition(sim)
+        ),
     ])

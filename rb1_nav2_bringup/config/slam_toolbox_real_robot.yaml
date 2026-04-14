@@ -2,7 +2,7 @@ slam_toolbox:
   ros__parameters:
     # Frames
     map_frame: map
-    odom_frame: odom #change
+    odom_frame: robot_odom #change
     base_frame: robot_base_footprint #change
 
     # Laser topic

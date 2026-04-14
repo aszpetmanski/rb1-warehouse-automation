@@ -17,6 +17,10 @@ def launch_setup(context, *args, **kwargs):
     suffix = '' if sim else '_real_robot'
     use_sim_time = sim
 
+    cmd_vel_remappings = [
+    ('/cmd_vel', '/diffbot_base_controller/cmd_vel_unstamped')
+] if sim else []
+
     map_file = os.path.join(pkg_share, 'maps', f'warehouse_map{suffix}.yaml')
     amcl_config = os.path.join(pkg_share, 'config', f'amcl_config{suffix}.yaml')
     controller_config = os.path.join(pkg_share, 'config', f'controller{suffix}.yaml')
@@ -69,9 +73,7 @@ def launch_setup(context, *args, **kwargs):
                 controller_config,
                 {'use_sim_time': use_sim_time},
             ],
-            remappings=[
-                ('/cmd_vel', '/diffbot_base_controller/cmd_vel_unstamped')
-            ],
+            remappings=cmd_vel_remappings,
         ),
 
         Node(
@@ -83,9 +85,7 @@ def launch_setup(context, *args, **kwargs):
                 behavior_config,
                 {'use_sim_time': use_sim_time},
             ],
-            remappings=[
-                ('/cmd_vel', '/diffbot_base_controller/cmd_vel_unstamped')
-            ],
+            remappings=cmd_vel_remappings,
         ),
 
         Node(
@@ -99,23 +99,23 @@ def launch_setup(context, *args, **kwargs):
             ],
         ),
 
-        Node(
-            package='rb1_nav2_bringup',
-            executable='startup_localizer.py',
-            name='startup_localizer',
-            output='screen',
-            parameters=[{'use_sim_time': use_sim_time}],
-            arguments=[
-                '--reinit-service', '/reinitialize_global_localization',
-                '--spin-action', '/spin',
-                '--yaw', str(-2.0 * 3.141592653589793),
-                '--spin-time-allowance', '30.0',
-                '--service-timeout', '120.0',
-                '--action-timeout', '120.0',
-                '--reinit-response-timeout', '10.0',
-                '--spin-result-timeout', '90.0',
-            ],
-        ),
+        # Node(
+        #     package='rb1_nav2_bringup',
+        #     executable='startup_localizer.py',
+        #     name='startup_localizer',
+        #     output='screen',
+        #     parameters=[{'use_sim_time': use_sim_time}],
+        #     arguments=[
+        #         '--reinit-service', '/reinitialize_global_localization',
+        #         '--spin-action', '/spin',
+        #         '--yaw', str(-2.0 * 3.141592653589793),
+        #         '--spin-time-allowance', '30.0',
+        #         '--service-timeout', '120.0',
+        #         '--action-timeout', '120.0',
+        #         '--reinit-response-timeout', '10.0',
+        #         '--spin-result-timeout', '90.0',
+        #     ],
+        # ),
 
         Node(
             package='nav2_lifecycle_manager',
