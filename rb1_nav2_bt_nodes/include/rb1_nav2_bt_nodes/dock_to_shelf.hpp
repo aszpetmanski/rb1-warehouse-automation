@@ -21,6 +21,9 @@ public:
 private:
   rclcpp::Node::SharedPtr node_;
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+  std::string cmd_vel_topic_{"/cmd_vel"};
+  std::string elevator_up_topic_{"/elevator_up"};
+  std::string robot_base_frame_{"robot_base_link"};
 
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr elevator_pub_;

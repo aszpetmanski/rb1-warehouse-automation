@@ -19,10 +19,12 @@ def launch_setup(context, *args, **kwargs):
 
     mission_pkg_share = get_package_share_directory('rb1_shelf_mission')
 
+    tree_base_name = 'find_carry_shelf'
+    tree_suffix = '' if sim else '_real_robot'
     tree_xml_file = os.path.join(
         mission_pkg_share,
         'config',
-        'find_carry_shelf.xml'
+        f'{tree_base_name}{tree_suffix}.xml'
     )
 
     plugin_libs = [

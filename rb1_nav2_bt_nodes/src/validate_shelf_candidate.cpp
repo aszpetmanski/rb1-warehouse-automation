@@ -65,13 +65,13 @@ void ValidateShelfCandidate::configureInterfaces() {
 BT::PortsList ValidateShelfCandidate::providedPorts() {
   return {
       // Candidate geometry ports kept for BT/XML compatibility.
-      BT::InputPort<geometry_msgs::msg::Point>(
-          "candidate_center", "Legacy compatibility input, currently unused"),
-      BT::InputPort<geometry_msgs::msg::Point>(
-          "candidate_left_leg", "Legacy compatibility input, currently unused"),
-      BT::InputPort<geometry_msgs::msg::Point>(
-          "candidate_right_leg",
-          "Legacy compatibility input, currently unused"),
+    //   BT::InputPort<geometry_msgs::msg::Point>(
+    //       "candidate_center", "Legacy compatibility input, currently unused"),
+    //   BT::InputPort<geometry_msgs::msg::Point>(
+    //       "candidate_left_leg", "Legacy compatibility input, currently unused"),
+    //   BT::InputPort<geometry_msgs::msg::Point>(
+    //       "candidate_right_leg",
+    //       "Legacy compatibility input, currently unused"),
 
       BT::InputPort<std::string>(
           "candidate_window",
@@ -109,8 +109,8 @@ BT::PortsList ValidateShelfCandidate::providedPorts() {
                          "Required number of consecutive valid detections"),
       BT::InputPort<double>("stable_hit_distance_tol", 0.18,
                             "Maximum allowed jump between accepted detections"),
-      BT::InputPort<double>("candidate_match_distance_tol", 0.28,
-                            "Legacy compatibility input, unused"),
+    //   BT::InputPort<double>("candidate_match_distance_tol", 0.28,
+    //                         "Legacy compatibility input, unused"),
       BT::InputPort<double>("stop_settle_time", 0.40,
                             "Time to wait after stop command"),
       BT::InputPort<double>("wait_duration", 10.0,

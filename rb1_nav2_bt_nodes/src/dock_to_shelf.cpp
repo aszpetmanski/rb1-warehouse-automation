@@ -32,14 +32,14 @@ bool DockToShelf::initializeRosNode() {
     }
   }
 
-  if (!cmd_vel_pub_) {
-    cmd_vel_pub_ = node_->create_publisher<geometry_msgs::msg::Twist>(
-        "/diffbot_base_controller/cmd_vel_unstamped", 10);
+  if (!cmd_vel_pub_ || cmd_vel_pub_->get_topic_name() != cmd_vel_topic_) {
+    cmd_vel_pub_ =
+        node_->create_publisher<geometry_msgs::msg::Twist>(cmd_vel_topic_, 10);
   }
 
-  if (!elevator_pub_) {
+  if (!elevator_pub_ || elevator_pub_->get_topic_name() != elevator_up_topic_) {
     elevator_pub_ =
-        node_->create_publisher<std_msgs::msg::String>("/elevator_up", 10);
+        node_->create_publisher<std_msgs::msg::String>(elevator_up_topic_, 10);
   }
 
   return true;
@@ -50,6 +50,16 @@ BT::PortsList DockToShelf::providedPorts() {
                                                    "Validated shelf center"),
           BT::InputPort<std::string>("target_frame", std::string("map"),
                                      "Frame for docking geometry"),
+          BT::InputPort<std::string>(
+              "cmd_vel_topic",
+              std::string("/diffbot_base_controller/cmd_vel_unstamped"),
+              "Velocity command topic"),
+          BT::InputPort<std::string>("elevator_up_topic",
+                                     std::string("/elevator_up"),
+                                     "Elevator up trigger topic"),
+          BT::InputPort<std::string>(
+              "robot_base_frame", std::string("robot_base_link"),
+              "Robot base frame used to compute heading"),
           BT::InputPort<double>("drive_distance", 0.95,
                                 "How far to drive forward during docking [m]"),
           BT::InputPort<double>("forward_speed", 0.15,
@@ -73,6 +83,9 @@ BT::NodeStatus DockToShelf::tick() {
 
   geometry_msgs::msg::Point shelf_center;
   std::string target_frame = "map";
+  std::string cmd_vel_topic = "/cmd_vel";
+  std::string elevator_up_topic = "/elevator_up";
+  std::string robot_base_frame = "robot_base_link";
   double drive_distance = 0.95;
   double forward_speed = 0.15;
   double yaw_gain = 1.5;
@@ -86,6 +99,10 @@ BT::NodeStatus DockToShelf::tick() {
     return BT::NodeStatus::FAILURE;
   }
 
+  getInput("target_frame", target_frame);
+  getInput("cmd_vel_topic", cmd_vel_topic);
+  getInput("elevator_up_topic", elevator_up_topic);
+  getInput("robot_base_frame", robot_base_frame);
   getInput("target_frame", target_frame);
   getInput("drive_distance", drive_distance);
   getInput("forward_speed", forward_speed);
@@ -163,7 +180,7 @@ BT::NodeStatus DockToShelf::tick() {
       geometry_msgs::msg::PointStamped base_origin_target;
       geometry_msgs::msg::PointStamped base_x_axis_target;
 
-      base_origin.header.frame_id = "robot_base_link";
+      base_origin.header.frame_id = robot_base_frame_;
       base_origin.header.stamp = builtin_interfaces::msg::Time();
       base_origin.point.x = 0.0;
       base_origin.point.y = 0.0;

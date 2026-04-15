@@ -355,8 +355,8 @@ bool PatrolUntilCandidate::updateStableHit(
     return false;
   }
 
-  const double distance = pointDistance2D(last_candidate_.center_target_frame,
-                                          detection.center_target_frame);
+  const double distance = scan_utils::distance2D(
+      last_candidate_.center_target_frame, detection.center_target_frame);
 
   if (distance <= stable_hit_distance_tol_) {
     consecutive_hits_++;
@@ -371,12 +371,6 @@ bool PatrolUntilCandidate::updateStableHit(
   }
 
   return consecutive_hits_ >= min_consecutive_hits_;
-}
-
-double PatrolUntilCandidate::pointDistance2D(
-    const geometry_msgs::msg::Point &a,
-    const geometry_msgs::msg::Point &b) const {
-  return std::hypot(a.x - b.x, a.y - b.y);
 }
 
 } // namespace rb1_bt
