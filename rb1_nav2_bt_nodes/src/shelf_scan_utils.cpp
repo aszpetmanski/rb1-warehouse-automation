@@ -16,6 +16,9 @@ namespace rb1_bt::scan_utils {
 
 namespace {
 
+constexpr double kHalfPi = 1.5707963267948966;
+constexpr int kMinSideSamples = 5;
+
 // Checks whether a single LaserScan reading can be used for
 // clustering/detection.
 bool isMeasurementValid(const sensor_msgs::msg::LaserScan &scan, int index,
@@ -47,6 +50,102 @@ bool isMeasurementValid(const sensor_msgs::msg::LaserScan &scan, int index,
   }
 
   return true;
+}
+
+double median(std::vector<double> values) {
+  if (values.empty()) {
+    return 0.0;
+  }
+
+  std::sort(values.begin(), values.end());
+  const std::size_t n = values.size();
+
+  if ((n % 2) == 1) {
+    return values[n / 2];
+  }
+
+  return 0.5 * (values[(n / 2) - 1] + values[n / 2]);
+}
+
+double percentile(std::vector<double> values, double p) {
+  if (values.empty()) {
+    return 0.0;
+  }
+
+  p = std::clamp(p, 0.0, 1.0);
+  std::sort(values.begin(), values.end());
+
+  const double idx = p * static_cast<double>(values.size() - 1);
+  const std::size_t lo = static_cast<std::size_t>(std::floor(idx));
+  const std::size_t hi = static_cast<std::size_t>(std::ceil(idx));
+
+  if (lo == hi) {
+    return values[lo];
+  }
+
+  const double t = idx - static_cast<double>(lo);
+  return (1.0 - t) * values[lo] + t * values[hi];
+}
+
+int angleToNearestScanIndex(const sensor_msgs::msg::LaserScan &scan,
+                            double angle_rad) {
+  if (std::abs(scan.angle_increment) < 1e-12) {
+    return -1;
+  }
+
+  const double raw = (angle_rad - static_cast<double>(scan.angle_min)) /
+                     static_cast<double>(scan.angle_increment);
+
+  return static_cast<int>(std::lround(raw));
+}
+
+std::vector<double> collectWindowRanges(const sensor_msgs::msg::LaserScan &scan,
+                                        int center_idx, int window_size,
+                                        double range_cap) {
+  std::vector<double> values;
+
+  if (scan.ranges.empty() || window_size <= 0) {
+    return values;
+  }
+
+  const int n = static_cast<int>(scan.ranges.size());
+  if (center_idx < 0 || center_idx >= n) {
+    return values;
+  }
+
+  const int half = window_size / 2;
+  const int start = std::max(0, center_idx - half);
+  const int end = std::min(n - 1, center_idx + half);
+
+  values.reserve(end - start + 1);
+
+  for (int i = start; i <= end; ++i) {
+    const float raw = scan.ranges[i];
+
+    if (std::isnan(raw)) {
+      continue;
+    }
+
+    if (std::isinf(raw)) {
+      values.push_back(range_cap);
+      continue;
+    }
+
+    const double r = static_cast<double>(raw);
+
+    if (r < scan.range_min) {
+      continue;
+    }
+
+    if (r > scan.range_max) {
+      values.push_back(range_cap);
+      continue;
+    }
+
+    values.push_back(std::min(r, range_cap));
+  }
+
+  return values;
 }
 
 } // namespace
@@ -306,30 +405,19 @@ extractClustersFromIndexWindow(const sensor_msgs::msg::LaserScan &scan,
   return output_clusters;
 }
 
-// Convenience overload that transforms a 2D point using default TF options.
+// Transforms a 2D point from one frame into another using the latest
+// available TF. No exact-time lookup is attempted.
 bool transformPointToFrame(const tf2_ros::Buffer &tf_buffer,
                            const std::string &source_frame,
                            const std::string &target_frame,
-                           const rclcpp::Time &stamp,
                            const Point2D &input_point,
                            geometry_msgs::msg::Point &output_point,
                            const rclcpp::Logger &logger) {
-  TransformPointOptions options;
-  return transformPointToFrame(tf_buffer, source_frame, target_frame, stamp,
-                               input_point, output_point, logger, options);
-}
-
-// Transforms a 2D point from one frame into another.
-bool transformPointToFrame(
-    const tf2_ros::Buffer &tf_buffer, const std::string &source_frame,
-    const std::string &target_frame, const rclcpp::Time &stamp,
-    const Point2D &input_point, geometry_msgs::msg::Point &output_point,
-    const rclcpp::Logger &logger, const TransformPointOptions &options) {
   geometry_msgs::msg::PointStamped in_point;
   geometry_msgs::msg::PointStamped out_point;
 
   in_point.header.frame_id = source_frame;
-  in_point.header.stamp = stamp;
+  in_point.header.stamp = builtin_interfaces::msg::Time();
   in_point.point.x = input_point.x;
   in_point.point.y = input_point.y;
   in_point.point.z = 0.0;
@@ -341,37 +429,8 @@ bool transformPointToFrame(
 
   try {
     out_point =
-        tf_buffer.transform(in_point, target_frame,
-                            tf2::durationFromSec(options.exact_timeout_sec));
+        tf_buffer.transform(in_point, target_frame, tf2::durationFromSec(0.05));
     output_point = out_point.point;
-    return true;
-  } catch (const tf2::TransformException &) {
-    // fall through to latest-transform fallback if enabled
-  }
-
-  if (!options.allow_latest_fallback) {
-    RCLCPP_WARN(logger,
-                "transformPointToFrame failed from '%s' to '%s' at exact time",
-                source_frame.c_str(), target_frame.c_str());
-    return false;
-  }
-
-  try {
-    in_point.header.stamp = builtin_interfaces::msg::Time();
-
-    out_point =
-        tf_buffer.transform(in_point, target_frame,
-                            tf2::durationFromSec(options.fallback_timeout_sec));
-    output_point = out_point.point;
-
-    if (options.warn_on_fallback) {
-      RCLCPP_WARN_THROTTLE(
-          logger, *rclcpp::Clock::make_shared(), 2000,
-          "transformPointToFrame: exact-time TF unavailable for %s -> %s, "
-          "used latest-transform fallback",
-          source_frame.c_str(), target_frame.c_str());
-    }
-
     return true;
   } catch (const tf2::TransformException &ex) {
     RCLCPP_WARN(logger, "transformPointToFrame failed from '%s' to '%s': %s",
@@ -380,61 +439,39 @@ bool transformPointToFrame(
   }
 }
 
-/*
-'''
-    // Finds the closest transformed cluster in the given scan window.
-    bool
-    findClosestTransformedClusterInWindow(
-        const sensor_msgs::msg::LaserScan &scan, int start_idx, int end_idx,
-        const ShelfDetectorParams &params, const tf2_ros::Buffer &tf_buffer,
-        const std::string &target_frame, const rclcpp::Time &transform_time,
-        const geometry_msgs::msg::Point &reference_point_target_frame,
-        double max_match_distance, TransformedClusterMatch &match_out,
-        const rclcpp::Logger &logger, const TransformPointOptions &tf_options) {
-  const auto clusters =
-      extractClustersFromIndexWindow(scan, start_idx, end_idx, params);
-
-  if (clusters.empty()) {
-    return false;
-  }
-
-  double best_dist = std::numeric_limits<double>::infinity();
-  bool found = false;
-
-  for (const auto &cluster : clusters) {
-    geometry_msgs::msg::Point transformed;
-    if (!transformPointToFrame(tf_buffer, scan.header.frame_id, target_frame,
-                               transform_time, cluster.centroid_laser,
-                               transformed, logger, tf_options)) {
-      continue;
-    }
-
-    const double dist = distance2D(transformed, reference_point_target_frame);
-    if (dist < best_dist) {
-      best_dist = dist;
-      match_out.cluster = cluster;
-      match_out.centroid_target_frame = transformed;
-      match_out.distance_to_ref = dist;
-      found = true;
-    }
-  }
-
-  if (!found) {
-    return false;
-  }
-
-  return best_dist <= max_match_distance;
+// Legacy compatibility overload: stamp is ignored and latest TF is used.
+bool transformPointToFrame(const tf2_ros::Buffer &tf_buffer,
+                           const std::string &source_frame,
+                           const std::string &target_frame,
+                           const rclcpp::Time &stamp,
+                           const Point2D &input_point,
+                           geometry_msgs::msg::Point &output_point,
+                           const rclcpp::Logger &logger) {
+  (void)stamp;
+  return transformPointToFrame(tf_buffer, source_frame, target_frame,
+                               input_point, output_point, logger);
 }
 
-'''
-*/
+// Legacy compatibility overload: stamp/options are ignored and latest TF is
+// used.
+bool transformPointToFrame(
+    const tf2_ros::Buffer &tf_buffer, const std::string &source_frame,
+    const std::string &target_frame, const rclcpp::Time &stamp,
+    const Point2D &input_point, geometry_msgs::msg::Point &output_point,
+    const rclcpp::Logger &logger, const TransformPointOptions &options) {
+  (void)stamp;
+  (void)options;
+  return transformPointToFrame(tf_buffer, source_frame, target_frame,
+                               input_point, output_point, logger);
+}
 
-// Finds the best shelf-like pair of clusters in the given scan window.
 std::optional<ShelfCandidateDetection> detectShelfCandidateInWindow(
     const sensor_msgs::msg::LaserScan &scan, int start_idx, int end_idx,
     const ShelfDetectorParams &params, const tf2_ros::Buffer &tf_buffer,
     const std::string &target_frame, const rclcpp::Time &transform_time,
     const rclcpp::Logger &logger) {
+  (void)transform_time; // intentionally ignored: always use latest TF
+
   const auto clusters =
       extractClustersFromIndexWindow(scan, start_idx, end_idx, params);
 
@@ -444,12 +481,6 @@ std::optional<ShelfCandidateDetection> detectShelfCandidateInWindow(
 
   double best_score = -std::numeric_limits<double>::infinity();
   std::optional<ShelfCandidateDetection> best_detection;
-
-  TransformPointOptions tf_options;
-  tf_options.exact_timeout_sec = 0.05;
-  tf_options.allow_latest_fallback = false;
-  tf_options.fallback_timeout_sec = 0.05;
-  tf_options.warn_on_fallback = false;
 
   for (std::size_t i = 0; i < clusters.size(); ++i) {
     for (std::size_t j = i + 1; j < clusters.size(); ++j) {
@@ -470,39 +501,42 @@ std::optional<ShelfCandidateDetection> detectShelfCandidateInWindow(
           0.5 * (first.centroid_laser.x + second.centroid_laser.x),
           0.5 * (first.centroid_laser.y + second.centroid_laser.y)};
 
-      geometry_msgs::msg::Point first_target;
-      geometry_msgs::msg::Point second_target;
+      // IMPORTANT:
+      // Left/right must be decided in laser frame, not target/map frame.
+      const Point2D &left_laser =
+          (first.centroid_laser.y >= second.centroid_laser.y)
+              ? first.centroid_laser
+              : second.centroid_laser;
+
+      const Point2D &right_laser =
+          (first.centroid_laser.y >= second.centroid_laser.y)
+              ? second.centroid_laser
+              : first.centroid_laser;
+
+      geometry_msgs::msg::Point left_target;
+      geometry_msgs::msg::Point right_target;
       geometry_msgs::msg::Point center_target;
 
       if (!transformPointToFrame(tf_buffer, scan.header.frame_id, target_frame,
-                                 transform_time, first.centroid_laser,
-                                 first_target, logger, tf_options)) {
+                                 left_laser, left_target, logger)) {
         continue;
       }
 
       if (!transformPointToFrame(tf_buffer, scan.header.frame_id, target_frame,
-                                 transform_time, second.centroid_laser,
-                                 second_target, logger, tf_options)) {
+                                 right_laser, right_target, logger)) {
         continue;
       }
 
       if (!transformPointToFrame(tf_buffer, scan.header.frame_id, target_frame,
-                                 transform_time, center_laser, center_target,
-                                 logger, tf_options)) {
+                                 center_laser, center_target, logger)) {
         continue;
       }
 
       ShelfCandidateDetection detection;
       detection.valid = true;
       detection.center_target_frame = center_target;
-
-      if (first_target.y >= second_target.y) {
-        detection.left_leg_target_frame = first_target;
-        detection.right_leg_target_frame = second_target;
-      } else {
-        detection.left_leg_target_frame = second_target;
-        detection.right_leg_target_frame = first_target;
-      }
+      detection.left_leg_target_frame = left_target;
+      detection.right_leg_target_frame = right_target;
 
       detection.confidence =
           100.0 -
@@ -519,6 +553,73 @@ std::optional<ShelfCandidateDetection> detectShelfCandidateInWindow(
   }
 
   return best_detection;
+}
+
+SideClearanceDecision
+detectPreferredBackupTurnSide(const sensor_msgs::msg::LaserScan &scan,
+                              int side_window_size, double side_range_cap,
+                              double min_preference_diff) {
+  SideClearanceDecision result;
+
+  if (scan.ranges.empty()) {
+    result.reason = "empty scan";
+    return result;
+  }
+
+  if (side_window_size < 1) {
+    result.reason = "side_window_size must be >= 1";
+    return result;
+  }
+
+  if (side_range_cap <= 0.0) {
+    result.reason = "side_range_cap must be > 0";
+    return result;
+  }
+
+  if (std::abs(scan.angle_increment) < 1e-12) {
+    result.reason = "invalid angle_increment";
+    return result;
+  }
+
+  const int left_center_idx = angleToNearestScanIndex(scan, +kHalfPi);
+  const int right_center_idx = angleToNearestScanIndex(scan, -kHalfPi);
+
+  const int n = static_cast<int>(scan.ranges.size());
+  if (left_center_idx < 0 || left_center_idx >= n || right_center_idx < 0 ||
+      right_center_idx >= n) {
+    result.reason = "scan does not cover both robot sides (+/-90deg)";
+    return result;
+  }
+
+  const auto left_values = collectWindowRanges(
+      scan, left_center_idx, side_window_size, side_range_cap);
+  const auto right_values = collectWindowRanges(
+      scan, right_center_idx, side_window_size, side_range_cap);
+
+  if (static_cast<int>(left_values.size()) < kMinSideSamples) {
+    result.reason = "not enough valid left-side samples";
+    return result;
+  }
+
+  if (static_cast<int>(right_values.size()) < kMinSideSamples) {
+    result.reason = "not enough valid right-side samples";
+    return result;
+  }
+
+  result.left_score = percentile(left_values, 0.25);
+  result.right_score = percentile(right_values, 0.25);
+
+  const double diff = result.left_score - result.right_score;
+
+  if (std::abs(diff) < min_preference_diff) {
+    result.preferred_turn_sign = 0;
+  } else {
+    result.preferred_turn_sign = (diff > 0.0) ? +1 : -1;
+  }
+
+  result.valid = true;
+  result.reason = "ok";
+  return result;
 }
 
 } // namespace rb1_bt::scan_utils

@@ -51,18 +51,16 @@ struct TransformPointOptions {
   bool warn_on_fallback{true};
 };
 
-/*
-    // Result of matching a transformed cluster against a reference point.
-    struct TransformedClusterMatch {
-  ScanCluster cluster;
-  geometry_msgs::msg::Point centroid_target_frame;
-  double distance_to_ref{0.0};
+struct ShelfGeometryDetection {
+  bool valid{false};
+  geometry_msgs::msg::Point center_target_frame;
+  geometry_msgs::msg::Point left_leg_target_frame;
+  geometry_msgs::msg::Point right_leg_target_frame;
+  double confidence{0.0};
 };
 
 // Candidate shelf detection represented in the target frame.
-*/
-
-// We do this weird shinanigans to supress build warning
+// We keep the explicit constructor to suppress message-init warnings.
 struct ShelfCandidateDetection {
   geometry_msgs::msg::Point center_target_frame;
   geometry_msgs::msg::Point left_leg_target_frame;
@@ -75,6 +73,14 @@ struct ShelfCandidateDetection {
         left_leg_target_frame(rosidl_runtime_cpp::MessageInitialization::ALL),
         right_leg_target_frame(rosidl_runtime_cpp::MessageInitialization::ALL),
         confidence(0.0), valid(false) {}
+};
+
+struct SideClearanceDecision {
+  bool valid{false};
+  int preferred_turn_sign{0}; // +1 left, -1 right, 0 neutral
+  double left_score{0.0};
+  double right_score{0.0};
+  std::string reason;
 };
 
 } // namespace rb1_bt

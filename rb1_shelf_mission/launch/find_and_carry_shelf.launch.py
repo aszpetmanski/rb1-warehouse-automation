@@ -37,6 +37,8 @@ def launch_setup(context, *args, **kwargs):
         lib_path('rb1_nav2_bt_nodes', 'librb1_switch_nav2_mode_bt_node.so'),
         lib_path('rb1_nav2_bt_nodes', 'librb1_custom_back_up_bt_node.so'),
         lib_path('rb1_nav2_bt_nodes', 'librb1_place_shelf_bt_node.so'),
+        lib_path('rb1_nav2_bt_nodes', 'librb1_custom_drive_on_heading_bt_node.so'),
+        lib_path('rb1_nav2_bt_nodes', 'librb1_refine_shelf_geometry_bt_node.so'),
         lib_path('rb1_nav2_bt_nodes', 'librb1_dummy_mission_bt_nodes.so'),
 
         # Nav2 BT pluginy użyte w XML

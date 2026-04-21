@@ -4,10 +4,11 @@
     <RecoveryNode number_of_retries="2" name="FindCarryShelfRecovery">
 
       <Sequence name="FindCarryShelfMission">
-
         <InitShelfMission
           patrol_waypoints_input="4.447,4.206,-1.138; 4.761,3.545,-2.676; 2.790,1.067,-2.659; 1.520,0.409,-2.660; 0.408,2.580,0.370"
           dropoff_waypoint="0.5,2.55,1.57"
+          init_waypoint="0.506,2.576,0.5"
+          init_pose="{init_pose}"
           target_frame="map"
           patrol_waypoints="{patrol_waypoints}"
           dropoff_pose="{dropoff_pose}"
@@ -20,62 +21,81 @@
           predock_pose="{predock_pose}"
           dock_pose="{dock_pose}" />
 
-        <PatrolUntilCandidate
-          patrol_waypoints="{patrol_waypoints}"
-          nav_action_name="navigate_to_pose"
-          scan_topic="/scan"
-          target_frame="map"
-          left_window_start_idx="55"
-          left_window_end_idx="305"
-          right_window_start_idx="775"
-          right_window_end_idx="1025"
-          expected_leg_spacing="0.60"
-          leg_spacing_tolerance="0.12"
-          cluster_gap_tolerance="0.10"
-          intensity_threshold="2400.0"
-          max_detection_range="2.5"
-          min_cluster_points="1"
-          min_consecutive_hits="1"
-          stable_hit_distance_tol="0.25"
-          max_waypoint_failures="3"
-          candidate_center="{candidate_center}"
-          candidate_left_leg="{candidate_left_leg}"
-          candidate_right_leg="{candidate_right_leg}"
-          candidate_confidence="{candidate_confidence}"
-          candidate_window="{candidate_window}" />
+        <RecoveryNode number_of_retries="50" name="AcquireValidatedShelfRecovery">
+          <Sequence name="AcquireValidatedShelf">
 
-        <ValidateShelfCandidate
-          scan_topic="/scan"
-          cmd_vel_topic="/diffbot_base_controller/cmd_vel_unstamped"
-          target_frame="map"
+            <PatrolUntilCandidate
+              patrol_waypoints="{patrol_waypoints}"
+              nav_action_name="navigate_to_pose"
+              scan_topic="/scan"
+              target_frame="map"
+              left_window_start_idx="55"
+              left_window_end_idx="305"
+              right_window_start_idx="775"
+              right_window_end_idx="1025"
+              expected_leg_spacing="0.60"
+              leg_spacing_tolerance="0.12"
+              cluster_gap_tolerance="0.10"
+              intensity_threshold="3200.0"
+              max_detection_range="2.5"
+              min_cluster_points="2"
+              min_consecutive_hits="2"
+              stable_hit_distance_tol="0.25"
+              max_waypoint_failures="3"
+              candidate_center="{candidate_center}"
+              candidate_left_leg="{candidate_left_leg}"
+              candidate_right_leg="{candidate_right_leg}"
+              candidate_confidence="{candidate_confidence}"
+              candidate_window="{candidate_window}" />
 
-          left_window_start_idx="55"
-          left_window_end_idx="305"
-          right_window_start_idx="775"
-          right_window_end_idx="1025"
+            <CustomDriveOnHeading
+              distance="0.25"
+              speed="0.05"
+              time_allowance="9.0"
+              cmd_vel_topic="/cmd_vel"
+              odom_topic="/odom" />  
 
-          expected_leg_spacing="0.65"
-          leg_spacing_tolerance="0.09"
-          cluster_gap_tolerance="0.07"
-          intensity_threshold="2500.0"
-          max_detection_range="2.5"
-          min_cluster_points="4"
-          min_consecutive_hits="3"
-          stable_hit_distance_tol="0.18"
-          stop_settle_time="0.40"
-          wait_duration="10.0"
-          max_scan_age="0.90"
+            <ValidateShelfCandidate
+              scan_topic="/scan"
+              cmd_vel_topic="/cmd_vel"
+              target_frame="map"
 
-          shelf_center="{shelf_center}"
-          shelf_left_leg="{shelf_left_leg}"
-          shelf_right_leg="{shelf_right_leg}"
-          candidate_window="{candidate_window}" />
+              left_window_start_idx="55"
+              left_window_end_idx="305"
+              right_window_start_idx="775"
+              right_window_end_idx="1025"
+
+              expected_leg_spacing="0.60"
+              leg_spacing_tolerance="0.09"
+              cluster_gap_tolerance="0.07"
+              intensity_threshold="3400.0"
+              max_detection_range="2.5"
+              min_cluster_points="5"
+              min_consecutive_hits="3"
+              stable_hit_distance_tol="0.18"
+              stop_settle_time="0.40"
+              wait_duration="10.0"
+              max_scan_age="0.90"
+
+              shelf_center="{shelf_center}"
+              shelf_left_leg="{shelf_left_leg}"
+              shelf_right_leg="{shelf_right_leg}"
+              candidate_window="{candidate_window}" />
+
+          </Sequence>
+
+          <SequenceStar name="AcquireShelfRecoveryActions">
+            <StopRobot />
+            <ClearEntireCostmap service_name="local_costmap/clear_entirely_local_costmap"/>
+            <Wait wait_duration="0.25"/>
+          </SequenceStar>
+        </RecoveryNode>
 
         <ComputePreDockPose
           shelf_left_leg="{shelf_left_leg}"
           shelf_right_leg="{shelf_right_leg}"
           target_frame="map"
-          predock_offset="0.60"
+          predock_offset="0.75"
           predock_pose="{predock_pose}" />
 
         <RecoveryNode number_of_retries="6" name="NavigateToPredockRecovery">
@@ -103,31 +123,62 @@
           </SequenceStar>
         </RecoveryNode>
 
+        <RefineShelfGeometry
+          scan_topic="/scan"
+          cmd_vel_topic="/cmd_vel"
+          target_frame="map"
+          front_window_start_idx="230"
+          front_window_end_idx="850"
+          expected_leg_spacing="0.65"
+          leg_spacing_tolerance="0.08"
+          cluster_gap_tolerance="0.04"
+          intensity_threshold="3900.0"
+          max_detection_range="1.8"
+          min_cluster_points="5"
+          min_consecutive_hits="3"
+          stable_hit_distance_tol="0.08"
+          stop_settle_time="0.30"
+          wait_duration="18.0"
+          max_scan_age="0.40"
+          side_window_size="40"
+          side_range_cap="2.0"
+          side_free_min_diff="0.15"
+          shelf_center="{shelf_center}"
+          shelf_left_leg="{shelf_left_leg}"
+          shelf_right_leg="{shelf_right_leg}"
+          shelf_normal_yaw="{shelf_normal_yaw}"
+          shelf_tangent_yaw="{shelf_tangent_yaw}"
+          backup_turn_sign="{backup_turn_sign}"
+          left_free_score="{left_free_score}"
+          right_free_score="{right_free_score}" />
+
         <DockToShelf
           shelf_center="{shelf_center}"
+          shelf_normal_yaw="{shelf_normal_yaw}"
           target_frame="map"
           cmd_vel_topic="/cmd_vel"
           elevator_up_topic="/elevator_up"
           robot_base_frame="robot_base_link"
-          drive_distance="0.95"
-          forward_speed="0.15"
+          drive_distance="1.00"
+          forward_speed="0.07"
           yaw_gain="1.5"
           max_angular_speed="0.35"
-          control_rate="20.0"
-          straight_when_center_dist_below="0.10" />
+          control_rate="10.0" />
 
         <SwitchToCarryMode
-          carry_footprint="[[0.46,0.38],[0.46,-0.38],[-0.36,-0.38],[-0.36,0.38]]"
+          carry_footprint="[[0.52,0.43],[0.52,-0.43],[-0.33,-0.43],[-0.33,0.43]]"
           footprint_padding="0.01"
-          local_inflation_radius="0.55"
+          local_inflation_radius="0.52"
           local_cost_scaling_factor="4.0"
-          global_inflation_radius="0.65"
-          global_cost_scaling_factor="6.0" />
+          global_inflation_radius="0.52"
+          global_cost_scaling_factor="7.0" />
         
         <CustomBackUp
-          distance="1.00"
+          distance="1.25"
           speed="0.10"
-          time_allowance="15.0"
+          time_allowance="25.0"
+          turn_sign="{backup_turn_sign}"
+          turn_angular_speed="0.05"
           cmd_vel_topic="/cmd_vel"
           odom_topic="/odom" />
 
@@ -151,6 +202,12 @@
           <SequenceStar name="DropoffRecoveryActions">
             <ClearEntireCostmap service_name="local_costmap/clear_entirely_local_costmap"/>
             <ClearEntireCostmap service_name="global_costmap/clear_entirely_global_costmap"/>
+            <CustomBackUp
+                distance="0.10"
+                speed="0.05"
+                time_allowance="15.0"
+                cmd_vel_topic="/cmd_vel"
+                odom_topic="/odom" />
             <Spin spin_dist="1.57"/>
             <Wait wait_duration="5.0"/>
           </SequenceStar>
@@ -201,6 +258,31 @@
           cmd_vel_topic="/cmd_vel"
           odom_topic="/odom" />
 
+        <RecoveryNode number_of_retries="6" name="NavigateToInitRecovery">
+            <PipelineSequence name="NavigateToInitWithReplanning">
+
+                <RateController hz="1.0">
+                <RecoveryNode number_of_retries="1" name="ComputePathToInitRecovery">
+                    <ComputePathToPose goal="{init_pose}" path="{path_to_init}" planner_id="GridBased"/>
+                    <ClearEntireCostmap service_name="global_costmap/clear_entirely_global_costmap"/>
+                </RecoveryNode>
+                </RateController>
+
+                <RecoveryNode number_of_retries="1" name="FollowInitPathRecovery">
+                <FollowPath path="{path_to_init}" controller_id="FollowPath"/>
+                <ClearEntireCostmap service_name="local_costmap/clear_entirely_local_costmap"/>
+                </RecoveryNode>
+
+            </PipelineSequence>
+
+            <SequenceStar name="InitRecoveryActions">
+                <ClearEntireCostmap service_name="local_costmap/clear_entirely_local_costmap"/>
+                <ClearEntireCostmap service_name="global_costmap/clear_entirely_global_costmap"/>
+                <Spin spin_dist="1.57"/>
+                <Wait wait_duration="5.0"/>
+            </SequenceStar>
+        </RecoveryNode>      
+
       </Sequence>
 
       <SequenceStar name="MissionRecoveryActions">
@@ -215,12 +297,3 @@
   </BehaviorTree>
 
 </root>
-
-
-<!--
-
-0.0,0.40,1.57; 1.5,0.40,0.0; 2.8,0.40,0.0; 3.4,0.4,0.0; 
-
-
-
--->

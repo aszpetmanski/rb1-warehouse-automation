@@ -36,7 +36,7 @@ controller_server:
 
       # Velocity limits
       min_vel_x: 0.0
-      max_vel_x: 0.36
+      max_vel_x: 0.28
       min_vel_y: 0.0
       max_vel_y: 0.0
       max_vel_theta: 0.5
@@ -69,7 +69,7 @@ controller_server:
       # Critics
       critics: ["RotateToGoal", "Oscillation", "GoalAlign", "BaseObstacle", "PathAlign", "PathDist", "GoalDist"]
 
-      BaseObstacle.scale: 2.0
+      BaseObstacle.scale: 6.0
 
       PathAlign.scale: 8.0
       PathAlign.forward_point_distance: 0.1
@@ -128,4 +128,4 @@ local_costmap:
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 2.0
-        inflation_radius: 0.29
+        inflation_radius: 0.27

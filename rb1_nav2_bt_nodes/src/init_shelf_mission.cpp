@@ -33,6 +33,8 @@ BT::PortsList InitShelfMission::providedPorts() {
                                                "Patrol route as x,y,yaw; ..."),
       BT::InputPort<SimplePose2D>("dropoff_waypoint",
                                   "Dropoff waypoint as x,y,yaw"),
+      BT::InputPort<SimplePose2D>("init_waypoint",
+                                  "Initial/home waypoint as x,y,yaw"),
       BT::InputPort<std::string>("target_frame", std::string("map"),
                                  "Frame for generated poses"),
 
@@ -40,6 +42,8 @@ BT::PortsList InitShelfMission::providedPorts() {
           "patrol_waypoints", "Patrol route copied to blackboard"),
       BT::OutputPort<geometry_msgs::msg::PoseStamped>(
           "dropoff_pose", "Dropoff pose for navigation"),
+      BT::OutputPort<geometry_msgs::msg::PoseStamped>(
+          "init_pose", "Initial/home pose for navigation"),
 
       BT::OutputPort<geometry_msgs::msg::Point>("candidate_center",
                                                 "Initialized candidate center"),
@@ -66,6 +70,7 @@ BT::NodeStatus InitShelfMission::tick() {
 
   std::vector<SimplePose2D> patrol_waypoints;
   SimplePose2D dropoff_waypoint;
+  SimplePose2D init_waypoint;
   std::string target_frame = "map";
 
   if (!getInput("patrol_waypoints_input", patrol_waypoints)) {
@@ -80,6 +85,12 @@ BT::NodeStatus InitShelfMission::tick() {
     return BT::NodeStatus::FAILURE;
   }
 
+  if (!getInput("init_waypoint", init_waypoint)) {
+    RCLCPP_ERROR(node_->get_logger(),
+                 "InitShelfMission: missing input [init_waypoint]");
+    return BT::NodeStatus::FAILURE;
+  }
+
   getInput("target_frame", target_frame);
 
   if (patrol_waypoints.empty()) {
@@ -91,8 +102,12 @@ BT::NodeStatus InitShelfMission::tick() {
   const auto dropoff_pose = scan_utils::buildPoseStampedFromWaypoint(
       dropoff_waypoint, target_frame, node_->now());
 
+  const auto init_pose = scan_utils::buildPoseStampedFromWaypoint(
+      init_waypoint, target_frame, node_->now());
+
   setOutput("patrol_waypoints", patrol_waypoints);
   setOutput("dropoff_pose", dropoff_pose);
+  setOutput("init_pose", init_pose);
 
   geometry_msgs::msg::Point zero_point;
   zero_point.x = 0.0;
@@ -122,9 +137,10 @@ BT::NodeStatus InitShelfMission::tick() {
   RCLCPP_INFO(
       node_->get_logger(),
       "InitShelfMission: initialized mission with %zu patrol waypoints, "
-      "dropoff=(%.3f, %.3f, %.3f)",
+      "dropoff=(%.3f, %.3f, %.3f), init=(%.3f, %.3f, %.3f)",
       patrol_waypoints.size(), dropoff_waypoint.x, dropoff_waypoint.y,
-      dropoff_waypoint.yaw);
+      dropoff_waypoint.yaw, init_waypoint.x, init_waypoint.y,
+      init_waypoint.yaw);
 
   return BT::NodeStatus::SUCCESS;
 }

@@ -311,6 +311,65 @@ target_link_libraries(rb1_place_shelf_bt_node
 target_compile_features(rb1_place_shelf_bt_node PUBLIC cxx_std_17)
 target_compile_definitions(rb1_place_shelf_bt_node PRIVATE BT_PLUGIN_EXPORT)
 
+# -------------------------------
+# Plugin 9: CustomDriveOnHeading
+# -------------------------------
+add_library(rb1_custom_drive_on_heading_bt_node SHARED
+  src/custom_drive_on_heading.cpp
+)
+
+target_include_directories(rb1_custom_drive_on_heading_bt_node
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+
+ament_target_dependencies(rb1_custom_drive_on_heading_bt_node
+  rclcpp
+  geometry_msgs
+  nav_msgs
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+  behaviortree_cpp_v3
+)
+
+target_compile_features(rb1_custom_drive_on_heading_bt_node PUBLIC cxx_std_17)
+target_compile_definitions(rb1_custom_drive_on_heading_bt_node PRIVATE BT_PLUGIN_EXPORT)
+
+
+# -------------------------------
+# Plugin 10: RefineShelfGeometry
+# -------------------------------
+add_library(rb1_refine_shelf_geometry_bt_node SHARED
+  src/refine_shelf_geometry.cpp
+)
+
+target_include_directories(rb1_refine_shelf_geometry_bt_node
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+
+ament_target_dependencies(rb1_refine_shelf_geometry_bt_node
+  rclcpp
+  geometry_msgs
+  sensor_msgs
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+  behaviortree_cpp_v3
+  nav2_util
+)
+
+target_link_libraries(rb1_refine_shelf_geometry_bt_node
+  rb1_shelf_scan_utils
+)
+
+target_compile_features(rb1_refine_shelf_geometry_bt_node PUBLIC cxx_std_17)
+target_compile_definitions(rb1_refine_shelf_geometry_bt_node PRIVATE BT_PLUGIN_EXPORT)
+
+
 install(
   DIRECTORY include/
   DESTINATION include
@@ -328,6 +387,8 @@ install(
 	rb1_custom_back_up_bt_node
 	rb1_place_shelf_bt_node
     rb1_dummy_mission_bt_nodes
+	rb1_refine_shelf_geometry_bt_node
+    rb1_custom_drive_on_heading_bt_node
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -342,8 +403,10 @@ ament_export_libraries(
   rb1_validate_shelf_candidate_bt_node
   rb1_compute_pre_dock_pose_bt_node
   rb1_dock_to_shelf_bt_node
+  rb1_refine_shelf_geometry_bt_node
   rb1_switch_nav2_mode_bt_node
   rb1_custom_back_up_bt_node
+  rb1_custom_drive_on_heading_bt_node
   rb1_place_shelf_bt_node
   rb1_dummy_mission_bt_nodes
 )

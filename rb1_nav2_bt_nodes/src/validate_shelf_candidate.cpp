@@ -65,13 +65,15 @@ void ValidateShelfCandidate::configureInterfaces() {
 BT::PortsList ValidateShelfCandidate::providedPorts() {
   return {
       // Candidate geometry ports kept for BT/XML compatibility.
-    //   BT::InputPort<geometry_msgs::msg::Point>(
-    //       "candidate_center", "Legacy compatibility input, currently unused"),
-    //   BT::InputPort<geometry_msgs::msg::Point>(
-    //       "candidate_left_leg", "Legacy compatibility input, currently unused"),
-    //   BT::InputPort<geometry_msgs::msg::Point>(
-    //       "candidate_right_leg",
-    //       "Legacy compatibility input, currently unused"),
+      //   BT::InputPort<geometry_msgs::msg::Point>(
+      //       "candidate_center", "Legacy compatibility input, currently
+      //       unused"),
+      //   BT::InputPort<geometry_msgs::msg::Point>(
+      //       "candidate_left_leg", "Legacy compatibility input, currently
+      //       unused"),
+      //   BT::InputPort<geometry_msgs::msg::Point>(
+      //       "candidate_right_leg",
+      //       "Legacy compatibility input, currently unused"),
 
       BT::InputPort<std::string>(
           "candidate_window",
@@ -109,8 +111,8 @@ BT::PortsList ValidateShelfCandidate::providedPorts() {
                          "Required number of consecutive valid detections"),
       BT::InputPort<double>("stable_hit_distance_tol", 0.18,
                             "Maximum allowed jump between accepted detections"),
-    //   BT::InputPort<double>("candidate_match_distance_tol", 0.28,
-    //                         "Legacy compatibility input, unused"),
+      //   BT::InputPort<double>("candidate_match_distance_tol", 0.28,
+      //                         "Legacy compatibility input, unused"),
       BT::InputPort<double>("stop_settle_time", 0.40,
                             "Time to wait after stop command"),
       BT::InputPort<double>("wait_duration", 10.0,
@@ -335,12 +337,6 @@ bool ValidateShelfCandidate::validateFromScan(
   params.max_detection_range = max_detection_range_;
   params.min_cluster_points = min_cluster_points_;
 
-  TransformPointOptions tf_options;
-  tf_options.exact_timeout_sec = tf_exact_timeout_sec_;
-  tf_options.allow_latest_fallback = true;
-  tf_options.fallback_timeout_sec = tf_fallback_timeout_sec_;
-  tf_options.warn_on_fallback = true;
-
   int active_window_start = 0;
   int active_window_end = 0;
   const char *active_window_name = nullptr;
@@ -428,23 +424,20 @@ bool ValidateShelfCandidate::validateFromScan(
     laser_right_cluster = &best_cluster_a;
   }
 
-  const rclcpp::Time transform_time(scan.header.stamp,
-                                    node_->get_clock()->get_clock_type());
-
   geometry_msgs::msg::Point left_leg_target;
   if (!scan_utils::transformPointToFrame(
-          *tf_buffer_, scan.header.frame_id, target_frame_, transform_time,
+          *tf_buffer_, scan.header.frame_id, target_frame_,
           laser_left_cluster->centroid_laser, left_leg_target,
-          node_->get_logger(), tf_options)) {
+          node_->get_logger())) {
     logRejectThrottled("failed to transform left cluster centroid");
     return false;
   }
 
   geometry_msgs::msg::Point right_leg_target;
   if (!scan_utils::transformPointToFrame(
-          *tf_buffer_, scan.header.frame_id, target_frame_, transform_time,
+          *tf_buffer_, scan.header.frame_id, target_frame_,
           laser_right_cluster->centroid_laser, right_leg_target,
-          node_->get_logger(), tf_options)) {
+          node_->get_logger())) {
     logRejectThrottled("failed to transform right cluster centroid");
     return false;
   }

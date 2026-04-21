@@ -35,13 +35,13 @@ controller_server:
       short_circuit_trajectory_evaluation: True
 
       # Velocity limits
-      min_vel_x: 0.0
+      min_vel_x: -0.36
       max_vel_x: 0.36
       min_vel_y: 0.0
       max_vel_y: 0.0
       max_vel_theta: 0.5
 
-      min_speed_xy: 0.0
+      min_speed_xy: -0.26
       max_speed_xy: 0.26
       min_speed_theta: 0.0
       trans_stopped_velocity: 0.02

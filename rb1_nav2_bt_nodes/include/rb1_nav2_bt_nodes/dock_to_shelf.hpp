@@ -14,21 +14,21 @@ public:
   DockToShelf(const std::string &name, const BT::NodeConfiguration &config);
 
   static BT::PortsList providedPorts();
-
   BT::NodeStatus tick() override;
-  bool initializeRosNode();
 
 private:
+  void initializeRosNode();
+  void publishStop() const;
+
   rclcpp::Node::SharedPtr node_;
   std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
-  std::string cmd_vel_topic_{"/cmd_vel"};
+
+  std::string cmd_vel_topic_{"/diffbot_base_controller/cmd_vel_unstamped"};
   std::string elevator_up_topic_{"/elevator_up"};
   std::string robot_base_frame_{"robot_base_link"};
 
   rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
   rclcpp::Publisher<std_msgs::msg::String>::SharedPtr elevator_pub_;
-
-  void publishStop() const;
 };
 
 } // namespace rb1_bt

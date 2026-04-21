@@ -8,8 +8,6 @@
         <InitShelfMission
           patrol_waypoints_input="3.4,0.0,0.0; 5.7,0.0,0.0; 5.7,0.0,-3.14; 4.3,-0.4,-3.14; 3.25,-0.4,-3.14; 2.20,-0.4,-3.14; 0.6,-0.4,-3.14; 0.6,-3.0,1.55; 0.5,0.0,-3.14; 0.0,0.0,0.0"
           dropoff_waypoint="2.4,0.05,1.57"
-          init_waypoint="0.0,0.0,0.0"
-          init_pose="{init_pose}"
           target_frame="map"
           patrol_waypoints="{patrol_waypoints}"
           dropoff_pose="{dropoff_pose}"
@@ -50,13 +48,16 @@
               candidate_window="{candidate_window}" />
 
             <CustomDriveOnHeading
-              distance="0.05"
+              distance="0.15"
               speed="0.05"
-              time_allowance="12.0"
+              time_allowance="4.0"
               cmd_vel_topic="/diffbot_base_controller/cmd_vel_unstamped"
               odom_topic="/odom" />
 
             <ValidateShelfCandidate
+              candidate_center="{candidate_center}"
+              candidate_left_leg="{candidate_left_leg}"
+              candidate_right_leg="{candidate_right_leg}"
               scan_topic="/scan"
               cmd_vel_topic="/diffbot_base_controller/cmd_vel_unstamped"
               target_frame="map"
@@ -64,7 +65,7 @@
               left_window_end_idx="305"
               right_window_start_idx="775"
               right_window_end_idx="1025"
-              expected_leg_spacing="0.65"
+              expected_leg_spacing="0.60"
               leg_spacing_tolerance="0.09"
               cluster_gap_tolerance="0.07"
               intensity_threshold="7500.0"
@@ -72,6 +73,7 @@
               min_cluster_points="4"
               min_consecutive_hits="3"
               stable_hit_distance_tol="0.18"
+              candidate_match_distance_tol="0.28"
               stop_settle_time="0.40"
               wait_duration="10.0"
               max_scan_age="0.90"
@@ -138,49 +140,38 @@
           stop_settle_time="0.30"
           wait_duration="15.0"
           max_scan_age="0.40"
-          side_window_size="70"
-          side_range_cap="2.0"
-          side_free_min_diff="0.10"
           shelf_center="{shelf_center}"
           shelf_left_leg="{shelf_left_leg}"
           shelf_right_leg="{shelf_right_leg}"
           shelf_normal_yaw="{shelf_normal_yaw}"
-          shelf_tangent_yaw="{shelf_tangent_yaw}"
-          backup_turn_sign="{backup_turn_sign}"
-          left_free_score="{left_free_score}"
-          right_free_score="{right_free_score}" />
+          shelf_tangent_yaw="{shelf_tangent_yaw}" />
 
         <DockToShelf
           shelf_center="{shelf_center}"
-          shelf_normal_yaw="{shelf_normal_yaw}"
           target_frame="map"
-          cmd_vel_topic="/diffbot_base_controller/cmd_vel_unstamped"
-          elevator_up_topic="/elevator_up" 
-          robot_base_frame="robot_base_footprint"
-          drive_distance="1.05"
-          forward_speed="0.10"
-          yaw_gain="1.9"
+          drive_distance="0.95"
+          forward_speed="0.15"
+          yaw_gain="1.5"
           max_angular_speed="0.35"
-          control_rate="20.0" />
+          control_rate="20.0"
+          straight_when_center_dist_below="0.10" />
 
         <SwitchToCarryMode
-          carry_footprint="[[0.44,0.42],[0.44,-0.42],[-0.44,-0.42],[-0.44,0.42]]"
+          carry_footprint="[[0.46,0.38],[0.46,-0.38],[-0.36,-0.38],[-0.36,0.38]]"
           footprint_padding="0.01"
-          local_inflation_radius="0.61"
-          local_cost_scaling_factor="5.0"
-          global_inflation_radius="0.61"
-          global_cost_scaling_factor="7.0" />
+          local_inflation_radius="0.55"
+          local_cost_scaling_factor="4.0"
+          global_inflation_radius="0.65"
+          global_cost_scaling_factor="6.0" />
         
         <CustomBackUp
-          distance="1.15"
+          distance="1.00"
           speed="0.10"
-          time_allowance="27.0"
-          turn_sign="{backup_turn_sign}"
-          turn_angular_speed="0.04"
+          time_allowance="15.0"
           cmd_vel_topic="/diffbot_base_controller/cmd_vel_unstamped"
-          odom_topic="/odom" /> 
+          odom_topic="/odom" />
 
-        <RecoveryNode number_of_retries="12" name="NavigateToDropoffRecovery">
+        <RecoveryNode number_of_retries="6" name="NavigateToDropoffRecovery">
           <PipelineSequence name="NavigateToDropoffWithReplanning">
 
             <RateController hz="1.0">
@@ -201,7 +192,7 @@
             <ClearEntireCostmap service_name="local_costmap/clear_entirely_local_costmap"/>
             <ClearEntireCostmap service_name="global_costmap/clear_entirely_global_costmap"/>
             <Spin spin_dist="1.57"/>
-            <Wait wait_duration="10.0"/>
+            <Wait wait_duration="5.0"/>
           </SequenceStar>
         </RecoveryNode>
 
@@ -244,7 +235,7 @@
           global_clearing_layer_name="obstacle_layer" />
 
         <CustomBackUp
-          distance="1.20"
+          distance="1.10"
           speed="0.10"
           time_allowance="15.0"
           cmd_vel_topic="/diffbot_base_controller/cmd_vel_unstamped"
@@ -273,7 +264,7 @@
                 <Spin spin_dist="1.57"/>
                 <Wait wait_duration="5.0"/>
             </SequenceStar>
-        </RecoveryNode>    
+        </RecoveryNode>  
 
       </Sequence>
 
