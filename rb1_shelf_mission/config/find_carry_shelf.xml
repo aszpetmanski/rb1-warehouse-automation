@@ -154,7 +154,7 @@
           shelf_left_leg="{shelf_left_leg}"
           shelf_right_leg="{shelf_right_leg}"
           target_frame="map"
-          predock_offset="0.55"
+          predock_offset="0.45"
           predock_pose="{predock_pose_refined}" />
 
         <AdjustToPoseLocal
@@ -164,9 +164,9 @@
           robot_base_frame="robot_base_footprint"
           xy_tolerance="0.03"
           yaw_tolerance="0.03"
-          max_linear_speed="0.08"
-          max_angular_speed="0.35"
-          control_rate="15.0" />  
+          max_linear_speed="0.05"
+          max_angular_speed="0.25"
+          control_rate="20.0" />  
 
         <DockToShelf
           shelf_center="{shelf_center}"
@@ -175,7 +175,7 @@
           cmd_vel_topic="/diffbot_base_controller/cmd_vel_unstamped"
           elevator_up_topic="/elevator_up" 
           robot_base_frame="robot_base_footprint"
-          drive_distance="0.80"
+          drive_distance="0.70"
           forward_speed="0.10"
           yaw_gain="1.9"
           max_angular_speed="0.35"
