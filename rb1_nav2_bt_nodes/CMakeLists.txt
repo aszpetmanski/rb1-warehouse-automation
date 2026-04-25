@@ -369,6 +369,30 @@ target_link_libraries(rb1_refine_shelf_geometry_bt_node
 target_compile_features(rb1_refine_shelf_geometry_bt_node PUBLIC cxx_std_17)
 target_compile_definitions(rb1_refine_shelf_geometry_bt_node PRIVATE BT_PLUGIN_EXPORT)
 
+# -------------------------------
+# Plugin: AdjustToPoseLocal
+# -------------------------------
+add_library(rb1_adjust_to_pose_local_bt_node SHARED
+  src/adjust_to_pose_local.cpp
+)
+
+target_include_directories(rb1_adjust_to_pose_local_bt_node
+  PUBLIC
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+    $<INSTALL_INTERFACE:include>
+)
+
+ament_target_dependencies(rb1_adjust_to_pose_local_bt_node
+  rclcpp
+  geometry_msgs
+  tf2
+  tf2_ros
+  tf2_geometry_msgs
+  behaviortree_cpp_v3
+)
+
+target_compile_features(rb1_adjust_to_pose_local_bt_node PUBLIC cxx_std_17)
+target_compile_definitions(rb1_adjust_to_pose_local_bt_node PRIVATE BT_PLUGIN_EXPORT)
 
 install(
   DIRECTORY include/
@@ -389,6 +413,7 @@ install(
     rb1_dummy_mission_bt_nodes
 	rb1_refine_shelf_geometry_bt_node
     rb1_custom_drive_on_heading_bt_node
+	rb1_adjust_to_pose_local_bt_node
   EXPORT export_${PROJECT_NAME}
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
@@ -408,6 +433,7 @@ ament_export_libraries(
   rb1_custom_back_up_bt_node
   rb1_custom_drive_on_heading_bt_node
   rb1_place_shelf_bt_node
+  rb1_adjust_to_pose_local_bt_node
   rb1_dummy_mission_bt_nodes
 )
 ament_export_dependencies(

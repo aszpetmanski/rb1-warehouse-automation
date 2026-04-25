@@ -93,7 +93,7 @@
           shelf_left_leg="{shelf_left_leg}"
           shelf_right_leg="{shelf_right_leg}"
           target_frame="map"
-          predock_offset="0.60"
+          predock_offset="0.80"
           predock_pose="{predock_pose}" />
 
         <RecoveryNode number_of_retries="6" name="NavigateToPredockRecovery">
@@ -150,6 +150,24 @@
           left_free_score="{left_free_score}"
           right_free_score="{right_free_score}" />
 
+        <ComputePreDockPose
+          shelf_left_leg="{shelf_left_leg}"
+          shelf_right_leg="{shelf_right_leg}"
+          target_frame="map"
+          predock_offset="0.55"
+          predock_pose="{predock_pose_refined}" />
+
+        <AdjustToPoseLocal
+          goal="{predock_pose_refined}"
+          target_frame="map"
+          cmd_vel_topic="/diffbot_base_controller/cmd_vel_unstamped"
+          robot_base_frame="robot_base_footprint"
+          xy_tolerance="0.03"
+          yaw_tolerance="0.03"
+          max_linear_speed="0.08"
+          max_angular_speed="0.35"
+          control_rate="15.0" />  
+
         <DockToShelf
           shelf_center="{shelf_center}"
           shelf_normal_yaw="{shelf_normal_yaw}"
@@ -157,7 +175,7 @@
           cmd_vel_topic="/diffbot_base_controller/cmd_vel_unstamped"
           elevator_up_topic="/elevator_up" 
           robot_base_frame="robot_base_footprint"
-          drive_distance="1.05"
+          drive_distance="0.80"
           forward_speed="0.10"
           yaw_gain="1.9"
           max_angular_speed="0.35"
