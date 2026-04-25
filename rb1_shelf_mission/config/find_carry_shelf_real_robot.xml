@@ -5,8 +5,8 @@
 
       <Sequence name="FindCarryShelfMission">
         <InitShelfMission
-          patrol_waypoints_input="4.447,4.206,-1.138; 4.761,3.545,-2.676; 2.790,1.067,-2.659; 1.520,0.409,-2.660; 0.408,2.580,0.370"
-          dropoff_waypoint="4.39,4.02,1.08"
+          patrol_waypoints_input="4.447,4.206,-1.138; 4.761,3.545,-2.676; 2.21,2.73, -2.707; 1.520,0.409,-2.660; 1.00388,1.86345,-2.731"
+          dropoff_waypoint="4.46,3.577,-1.11"
           init_waypoint="0.506,2.576,0.5"
           init_pose="{init_pose}"
           target_frame="map"
@@ -68,9 +68,9 @@
               expected_leg_spacing="0.65"
               leg_spacing_tolerance="0.09"
               cluster_gap_tolerance="0.06"
-              intensity_threshold="4800.0"
+              intensity_threshold="3500.0"
               max_detection_range="2.5"
-              min_cluster_points="5"
+              min_cluster_points="4"
               min_consecutive_hits="3"
               stable_hit_distance_tol="0.18"
               stop_settle_time="0.40"
@@ -95,7 +95,7 @@
           shelf_left_leg="{shelf_left_leg}"
           shelf_right_leg="{shelf_right_leg}"
           target_frame="map"
-          predock_offset="0.95"
+          predock_offset="0.90"
           predock_pose="{predock_pose}" />
 
         <RecoveryNode number_of_retries="6" name="NavigateToPredockRecovery">
@@ -127,8 +127,8 @@
           scan_topic="/scan"
           cmd_vel_topic="/cmd_vel"
           target_frame="map"
-          front_window_start_idx="400"
-          front_window_end_idx="680"
+          front_window_start_idx="300"
+          front_window_end_idx="780"
           expected_leg_spacing="0.65"
           leg_spacing_tolerance="0.08"
           cluster_gap_tolerance="0.06"
@@ -156,7 +156,7 @@
           shelf_left_leg="{shelf_left_leg}"
           shelf_right_leg="{shelf_right_leg}"
           target_frame="map"
-          predock_offset="0.45"
+          predock_offset="0.60"
           predock_pose="{predock_pose_refined}" />
 
         <AdjustToPoseLocal
@@ -177,7 +177,7 @@
           cmd_vel_topic="/cmd_vel"
           elevator_up_topic="/elevator_up"
           robot_base_frame="robot_base_link"
-          drive_distance="0.70"
+          drive_distance="0.93"
           forward_speed="0.07"
           yaw_gain="1.9"
           max_angular_speed="0.45"
@@ -317,4 +317,13 @@
 </root>
 
 <!--  dropoff_waypoint="2.29,3.45,1.98" po prawej miedzy polkami 
-      dropoff_waypoint="4.39,4.02,1.08" tam gdzie byla   -->
+      dropoff_waypoint="4.46,3.577,-1.11" tam gdzie byla  
+      
+
+      [rviz2-8] [INFO] [1777115923.974408647] [rviz2]: Setting goal pose: Frame:map, Position(4.4652, 3.57689, 0), Orientation(0, 0, -0.528072, 0.849199) = Angle: -1.11266
+      
+
+
+        Position(2.21162, 2.73784, 0), Orientation(0, 0, -0.976553, 0.215275) = Angle: -2.70765
+
+       -->
