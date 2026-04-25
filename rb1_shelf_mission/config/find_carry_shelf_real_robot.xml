@@ -127,12 +127,12 @@
           scan_topic="/scan"
           cmd_vel_topic="/cmd_vel"
           target_frame="map"
-          front_window_start_idx="190"
-          front_window_end_idx="890"
+          front_window_start_idx="400"
+          front_window_end_idx="680"
           expected_leg_spacing="0.65"
           leg_spacing_tolerance="0.08"
           cluster_gap_tolerance="0.06"
-          intensity_threshold="5000.0"
+          intensity_threshold="2700.0"
           max_detection_range="1.8"
           min_cluster_points="3"
           min_consecutive_hits="5"
@@ -152,6 +152,24 @@
           left_free_score="{left_free_score}"
           right_free_score="{right_free_score}" />
 
+        <ComputePreDockPose
+          shelf_left_leg="{shelf_left_leg}"
+          shelf_right_leg="{shelf_right_leg}"
+          target_frame="map"
+          predock_offset="0.45"
+          predock_pose="{predock_pose_refined}" />
+
+        <AdjustToPoseLocal
+          goal="{predock_pose_refined}"
+          target_frame="map"
+          cmd_vel_topic="/cmd_vel"
+          robot_base_frame="robot_base_footprint"
+          xy_tolerance="0.05"
+          yaw_tolerance="0.05"
+          max_linear_speed="0.05"
+          max_angular_speed="0.25"
+          control_rate="10.0" />    
+
         <DockToShelf
           shelf_center="{shelf_center}"
           shelf_normal_yaw="{shelf_normal_yaw}"
@@ -159,7 +177,7 @@
           cmd_vel_topic="/cmd_vel"
           elevator_up_topic="/elevator_up"
           robot_base_frame="robot_base_link"
-          drive_distance="1.20"
+          drive_distance="0.70"
           forward_speed="0.07"
           yaw_gain="1.9"
           max_angular_speed="0.45"

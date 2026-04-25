@@ -348,14 +348,39 @@ bool RefineShelfGeometry::detectBestShelfGeometry(
 
       // Prefer well-centered detections when the robot already faces the shelf.
       const double centering_penalty = std::abs(center_laser.y);
-      const double intensity_bonus =
-          0.01 * (first.mean_intensity + second.mean_intensity);
-      const double points_bonus = 2.0 * (first.num_points + second.num_points);
+      const double depth_diff =
+          std::abs(first.centroid_laser.x - second.centroid_laser.x);
+
+      // At predock, the two front legs should be roughly left/right of the
+      // robot, not both on the same side.
+      if (!(left_laser.y > 0.0 && right_laser.y < 0.0)) {
+        continue;
+      }
+
+      // Shelf front should be roughly perpendicular to robot heading.
+      // If this is too strict, start with 0.20.
+      if (depth_diff > 0.18) {
+        continue;
+      }
+
+      // Do not allow a very off-center shelf pair to win.
+      if (std::abs(center_laser.y) > 0.18) {
+        continue;
+      }
+
+      // Use intensity only as a small capped bonus, not the main discriminator.
+      const double intensity_bonus = std::min(
+          15.0, 0.002 * (first.mean_intensity + second.mean_intensity));
+
+      const double points_bonus =
+          std::min(12.0, 0.5 * static_cast<double>(first.num_points +
+                                                   second.num_points));
 
       const double score =
           100.0 -
-          100.0 * (spacing_error / std::max(leg_spacing_tolerance_, 1e-6)) -
-          40.0 * centering_penalty + intensity_bonus + points_bonus;
+          120.0 * (spacing_error / std::max(leg_spacing_tolerance_, 1e-6)) -
+          180.0 * std::abs(center_laser.y) - 80.0 * depth_diff +
+          intensity_bonus + points_bonus;
 
       if (!found || score > best_score) {
         found = true;
