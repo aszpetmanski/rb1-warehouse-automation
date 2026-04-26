@@ -369,9 +369,6 @@ bool RefineShelfGeometry::detectBestShelfGeometry(
       }
 
       // Use intensity only as a small capped bonus, not the main discriminator.
-      const double intensity_bonus = std::min(
-          15.0, 0.002 * (first.mean_intensity + second.mean_intensity));
-
       const double points_bonus =
           std::min(12.0, 0.5 * static_cast<double>(first.num_points +
                                                    second.num_points));
@@ -379,8 +376,7 @@ bool RefineShelfGeometry::detectBestShelfGeometry(
       const double score =
           100.0 -
           120.0 * (spacing_error / std::max(leg_spacing_tolerance_, 1e-6)) -
-          180.0 * std::abs(center_laser.y) - 80.0 * depth_diff +
-          intensity_bonus + points_bonus;
+          180.0 * std::abs(center_laser.y) - 80.0 * depth_diff + points_bonus;
 
       if (!found || score > best_score) {
         found = true;

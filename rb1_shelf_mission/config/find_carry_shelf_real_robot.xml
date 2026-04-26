@@ -6,7 +6,7 @@
       <Sequence name="FindCarryShelfMission">
         <InitShelfMission
           patrol_waypoints_input="4.447,4.206,-1.138; 4.761,3.545,-2.676; 2.21,2.73, -2.707; 1.520,0.409,-2.660; 1.00388,1.86345,-2.731"
-          dropoff_waypoint="1.278,-0.756,-1.386"
+          dropoff_waypoint="4.46,3.577,-1.11"
           init_waypoint="0.506,2.576,0.5"
           init_pose="{init_pose}"
           target_frame="map"
@@ -33,7 +33,7 @@
               left_window_end_idx="305"
               right_window_start_idx="775"
               right_window_end_idx="1025"
-              expected_leg_spacing="0.65"
+              expected_leg_spacing="0.60"
               leg_spacing_tolerance="0.12"
               cluster_gap_tolerance="0.10"
               intensity_threshold="3500.0"
@@ -65,7 +65,7 @@
               right_window_start_idx="740"
               right_window_end_idx="1080"
 
-              expected_leg_spacing="0.65"
+              expected_leg_spacing="0.60"
               leg_spacing_tolerance="0.09"
               cluster_gap_tolerance="0.06"
               intensity_threshold="3500.0"
@@ -127,19 +127,19 @@
           scan_topic="/scan"
           cmd_vel_topic="/cmd_vel"
           target_frame="map"
-          front_window_start_idx="300"
-          front_window_end_idx="780"
-          expected_leg_spacing="0.65"
-          leg_spacing_tolerance="0.08"
-          cluster_gap_tolerance="0.06"
-          intensity_threshold="2700.0"
+          front_window_start_idx="250"
+          front_window_end_idx="830"
+          expected_leg_spacing="0.61"
+          leg_spacing_tolerance="0.12"
+          cluster_gap_tolerance="0.05"
+          intensity_threshold="3550.0"
           max_detection_range="1.8"
-          min_cluster_points="5"
+          min_cluster_points="3"
           min_consecutive_hits="5"
           stable_hit_distance_tol="0.04"
           stop_settle_time="0.60"
           wait_duration="28.0"
-          max_scan_age="0.40"
+          max_scan_age="0.65"
           side_window_size="45"
           side_range_cap="6.0"
           side_free_min_diff="0.15"
@@ -164,10 +164,10 @@
           target_frame="map"
           cmd_vel_topic="/cmd_vel"
           robot_base_frame="robot_base_footprint"
-          xy_tolerance="0.05"
-          yaw_tolerance="0.05"
-          max_linear_speed="0.05"
-          max_angular_speed="0.25"
+          xy_tolerance="0.03"
+          yaw_tolerance="0.03"
+          max_linear_speed="0.08"
+          max_angular_speed="0.15"
           control_rate="10.0" />    
 
         <DockToShelf
@@ -184,8 +184,8 @@
           control_rate="10.0" />
 
         <SwitchToCarryMode
-          carry_footprint="[[0.53,0.49],[0.53,-0.49],[-0.33,-0.46],[-0.33,0.46]]"
-          footprint_padding="0.02"
+          carry_footprint="[[0.48,0.45],[0.48,-0.45],[-0.33,-0.45],[-0.33,0.45]]"
+          footprint_padding="0.01"
           local_inflation_radius="0.52"
           local_cost_scaling_factor="7.0"
           global_inflation_radius="0.52"
@@ -316,11 +316,12 @@
 
 </root>
 
-<!--  dropoff_waypoint="2.29,3.45,1.98" po prawej srodkowa 
+<!--  dropoff_waypoint="1.73,2.68,2.01" po prawej gorna
+      dropoff_waypoint="2.29,3.45,1.98" po prawej srodkowa
+      dropoff_waypoint="3.132,3.449,2.035" po prawej dolna 
       dropoff_waypoint="4.46,3.577,-1.11" tam gdzie byla  
-      dropoff_waypoint="1.278,-0.756,-1.386" kolo ladowarki
-      dropoff_waypoint="1.140,0.750,1.63" po prawej gorna
-      dropoff_waypoint="2.644,1.062,1.738" po prawej dolna
+      dropoff_waypoint="1.927,1.394,-1.116" kolo ladowarki
+      
       
       
       dropoff_waypoint="1.244, 1.045,1.660" po prawej gorna

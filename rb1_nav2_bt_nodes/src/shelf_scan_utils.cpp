@@ -19,6 +19,13 @@ namespace {
 constexpr double kHalfPi = 1.5707963267948966;
 constexpr int kMinSideSamples = 5;
 
+// Use only the brightest local returns inside each cluster to estimate the
+// reflective leg center. This is per-cluster, so one globally brighter side
+// does not pull the shelf center by itself.
+constexpr double kBrightCoreFraction = 0.25; // brightest 35% of cluster points
+constexpr int kMinBrightCorePoints = 3;
+constexpr double kBrightWeightGain = 2.0; // max weight = 1 + gain
+
 // Checks whether a single LaserScan reading can be used for
 // clustering/detection.
 bool isMeasurementValid(const sensor_msgs::msg::LaserScan &scan, int index,
@@ -325,32 +332,122 @@ extractClustersFromIndexWindow(const sensor_msgs::msg::LaserScan &scan,
     return output_clusters;
   }
 
+  struct ClusterSample {
+    Point2D point;
+    double intensity{0.0};
+  };
+
   struct RawCluster {
-    std::vector<Point2D> points;
+    std::vector<ClusterSample> samples;
     double intensity_sum{0.0};
     int intensity_count{0};
   };
 
   const bool has_intensity = !scan.intensities.empty();
 
+  auto computeGeometricCentroid =
+      [](const std::vector<ClusterSample> &samples) -> Point2D {
+    Point2D centroid;
+
+    if (samples.empty()) {
+      centroid.x = 0.0;
+      centroid.y = 0.0;
+      return centroid;
+    }
+
+    double sum_x = 0.0;
+    double sum_y = 0.0;
+
+    for (const auto &sample : samples) {
+      sum_x += sample.point.x;
+      sum_y += sample.point.y;
+    }
+
+    const double inv_n = 1.0 / static_cast<double>(samples.size());
+    centroid.x = sum_x * inv_n;
+    centroid.y = sum_y * inv_n;
+    return centroid;
+  };
+
+  auto computeBrightCoreCentroid =
+      [&](const RawCluster &raw_cluster) -> Point2D {
+    if (!has_intensity ||
+        static_cast<int>(raw_cluster.samples.size()) < kMinBrightCorePoints) {
+      return computeGeometricCentroid(raw_cluster.samples);
+    }
+
+    auto bright_samples = raw_cluster.samples;
+
+    std::sort(bright_samples.begin(), bright_samples.end(),
+              [](const ClusterSample &a, const ClusterSample &b) {
+                return a.intensity > b.intensity;
+              });
+
+    const int desired_keep = std::max(
+        kMinBrightCorePoints,
+        static_cast<int>(std::ceil(
+            kBrightCoreFraction * static_cast<double>(bright_samples.size()))));
+
+    const int keep_count =
+        std::min(desired_keep, static_cast<int>(bright_samples.size()));
+
+    bright_samples.resize(static_cast<std::size_t>(keep_count));
+
+    const double max_i = bright_samples.front().intensity;
+    const double min_i = bright_samples.back().intensity;
+    const double span = std::max(1.0, max_i - min_i);
+
+    double weighted_x = 0.0;
+    double weighted_y = 0.0;
+    double weight_sum = 0.0;
+
+    for (const auto &sample : bright_samples) {
+      const double normalized =
+          std::clamp((sample.intensity - min_i) / span, 0.0, 1.0);
+
+      // Per-cluster normalized weight.
+      // This focuses the centroid on the local bright core without letting
+      // one globally brighter shelf side dominate the final center.
+      const double weight = 1.0 + kBrightWeightGain * normalized;
+
+      weighted_x += weight * sample.point.x;
+      weighted_y += weight * sample.point.y;
+      weight_sum += weight;
+    }
+
+    if (weight_sum <= 1e-9) {
+      return computeGeometricCentroid(raw_cluster.samples);
+    }
+
+    Point2D centroid;
+    centroid.x = weighted_x / weight_sum;
+    centroid.y = weighted_y / weight_sum;
+    return centroid;
+  };
+
   RawCluster current_cluster;
   std::optional<Point2D> previous_point;
 
+  auto appendPoint = [&](int index, const Point2D &point) {
+    double intensity = 0.0;
+
+    if (has_intensity && index < static_cast<int>(scan.intensities.size())) {
+      intensity = scan.intensities[index];
+      current_cluster.intensity_sum += intensity;
+      current_cluster.intensity_count++;
+    }
+
+    current_cluster.samples.push_back(ClusterSample{point, intensity});
+  };
+
   auto flushCluster = [&]() {
-    if (static_cast<int>(current_cluster.points.size()) >=
+    if (static_cast<int>(current_cluster.samples.size()) >=
         params.min_cluster_points) {
       ScanCluster cluster;
 
-      double sum_x = 0.0;
-      double sum_y = 0.0;
-      for (const auto &point : current_cluster.points) {
-        sum_x += point.x;
-        sum_y += point.y;
-      }
+      cluster.centroid_laser = computeBrightCoreCentroid(current_cluster);
+      cluster.num_points = static_cast<int>(current_cluster.samples.size());
 
-      cluster.centroid_laser.x = sum_x / current_cluster.points.size();
-      cluster.centroid_laser.y = sum_y / current_cluster.points.size();
-      cluster.num_points = static_cast<int>(current_cluster.points.size());
       cluster.mean_intensity =
           (current_cluster.intensity_count > 0)
               ? current_cluster.intensity_sum / current_cluster.intensity_count
@@ -375,13 +472,7 @@ extractClustersFromIndexWindow(const sensor_msgs::msg::LaserScan &scan,
     const Point2D current_point = polarToCartesian(range, angle);
 
     if (!previous_point.has_value()) {
-      current_cluster.points.push_back(current_point);
-
-      if (has_intensity && index < static_cast<int>(scan.intensities.size())) {
-        current_cluster.intensity_sum += scan.intensities[index];
-        current_cluster.intensity_count++;
-      }
-
+      appendPoint(index, current_point);
       previous_point = current_point;
       continue;
     }
@@ -391,13 +482,7 @@ extractClustersFromIndexWindow(const sensor_msgs::msg::LaserScan &scan,
       flushCluster();
     }
 
-    current_cluster.points.push_back(current_point);
-
-    if (has_intensity && index < static_cast<int>(scan.intensities.size())) {
-      current_cluster.intensity_sum += scan.intensities[index];
-      current_cluster.intensity_count++;
-    }
-
+    appendPoint(index, current_point);
     previous_point = current_point;
   }
 

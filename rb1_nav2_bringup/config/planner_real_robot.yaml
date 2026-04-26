@@ -8,8 +8,8 @@ planner_server:
 
     GridBased:
       plugin: "nav2_navfn_planner/NavfnPlanner"
-      tolerance: 0.15
-      use_astar: false
+      tolerance: 0.25
+      use_astar: true
       allow_unknown: true
 
 
@@ -50,12 +50,12 @@ global_costmap:
           marking: True
           clearing: True
           max_obstacle_height: 2.0
-          obstacle_max_range: 15.0
+          obstacle_max_range: 5.0
           obstacle_min_range: 0.1
-          raytrace_max_range: 15.0
+          raytrace_max_range: 5.0
           raytrace_min_range: 0.1
 
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
         cost_scaling_factor: 2.0
-        inflation_radius: 0.27
+        inflation_radius: 0.30

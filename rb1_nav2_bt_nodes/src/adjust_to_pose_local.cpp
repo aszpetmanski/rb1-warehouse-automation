@@ -133,7 +133,7 @@ BT::NodeStatus AdjustToPoseLocal::tick() {
 
   rclcpp::Rate rate(rate_hz);
   const auto start_time = node_->now();
-  constexpr double kTimeoutSec = 30.0;
+  constexpr double kTimeoutSec = 45.0;
 
   tf2::Quaternion q;
   tf2::fromMsg(goal.pose.orientation, q);
