@@ -4,18 +4,23 @@ var app = new Vue({
     data: {
         connected: false,
         ros: null,
-        logs: [],
-        nav2Logs: [],
-        missionLogs: [],
         loading: false,
 
         rosbridge_address: 'ws://localhost:9090',
+        selectedMode: 'simulation',
+
+        logs: [],
+        nav2Logs: [],
+        missionLogs: [],
+
+        showSystemLogs: false,
+        showNav2Logs: false,
+        showMissionLogs: false,
 
         heartbeatInterval: null,
 
-        selectedMode: 'simulation',
-
         nav2Running: false,
+        localizationDone: false,
         missionRunning: false,
         missionTriggered: false,
 
@@ -25,18 +30,41 @@ var app = new Vue({
             yaw: ''
         },
 
+        position: {
+            x: '--',
+            y: '--',
+            yaw: '--'
+        },
+
+        velocity: {
+            linear: '--',
+            angular: '--'
+        },
+
+        odomTopicName: '/odom',
+        cmdVelTopicName: '/diffbot_base_controller/cmd_vel_unstamped',
+
         nav2StatusTopic: null,
         missionStatusTopic: null,
         nav2LogTopic: null,
         missionLogTopic: null,
         navToPoseTopic: null,
+        odomTopic: null,
+        cmdVelTopic: null,
 
-        elevatorDirection: 'up',
-        elevatorTopic: null,
-        elevatorTimer: null
+        elevatorDirection: 'up'
+    },
+
+    computed: {
+        canStartMission() {
+            return this.connected && this.nav2Running && this.localizationDone;
+        }
     },
 
     methods: {
+        // ==================================================
+        // Logs
+        // ==================================================
         addLog(message) {
             const timestamp = new Date().toLocaleTimeString();
             this.logs.unshift(`[${timestamp}] ${message}`);
@@ -64,6 +92,24 @@ var app = new Vue({
             }
         },
 
+        formatNumber(value, digits = 2) {
+            if (value === null || value === undefined || isNaN(value)) {
+                return '--';
+            }
+
+            return Number(value).toFixed(digits);
+        },
+
+        quaternionToYaw(q) {
+            const sinyCosp = 2.0 * (q.w * q.z + q.x * q.y);
+            const cosyCosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z);
+
+            return Math.atan2(sinyCosp, cosyCosp);
+        },
+
+        // ==================================================
+        // ROSBridge connection
+        // ==================================================
         connect() {
             if (!this.rosbridge_address) {
                 this.addLog('Please enter a ROSBridge address.');
@@ -85,12 +131,12 @@ var app = new Vue({
                 this.addLog('Connected to ROSBridge.');
 
                 this.setupWebTopics();
+                this.setupRobotTopics();
                 this.startHeartbeat();
             });
 
             this.ros.on('error', (error) => {
                 this.loading = false;
-
                 this.addLog('ROSBridge connection error.');
                 console.error(error);
             });
@@ -103,12 +149,16 @@ var app = new Vue({
 
                 this.stopHeartbeat();
                 this.cleanupWebTopics();
-                this.stopElevatorPublisher();
+                this.cleanupRobotTopics();
 
                 this.ros = null;
+
                 this.nav2Running = false;
+                this.localizationDone = false;
                 this.missionRunning = false;
                 this.missionTriggered = false;
+
+                this.resetRobotStatus();
             });
         },
 
@@ -144,6 +194,9 @@ var app = new Vue({
             }
         },
 
+        // ==================================================
+        // Topics from web process manager
+        // ==================================================
         setupWebTopics() {
             this.cleanupWebTopics();
 
@@ -179,6 +232,12 @@ var app = new Vue({
 
             this.nav2StatusTopic.subscribe((msg) => {
                 this.nav2Running = msg.data === 'running';
+
+                if (!this.nav2Running) {
+                    this.localizationDone = false;
+                    this.missionRunning = false;
+                    this.missionTriggered = false;
+                }
             });
 
             this.missionStatusTopic.subscribe((msg) => {
@@ -224,6 +283,67 @@ var app = new Vue({
             this.navToPoseTopic = null;
         },
 
+        // ==================================================
+        // Robot topics: odom + cmd_vel
+        // ==================================================
+        setupRobotTopics() {
+            this.cleanupRobotTopics();
+
+            this.odomTopic = new ROSLIB.Topic({
+                ros: this.ros,
+                name: this.odomTopicName,
+                messageType: 'nav_msgs/Odometry'
+            });
+
+            this.odomTopic.subscribe(this.handleOdomMessage);
+
+            this.cmdVelTopic = new ROSLIB.Topic({
+                ros: this.ros,
+                name: this.cmdVelTopicName,
+                messageType: 'geometry_msgs/Twist'
+            });
+
+            this.addLog(`Subscribed to odom topic: ${this.odomTopicName}`);
+            this.addLog(`Prepared cmd_vel topic: ${this.cmdVelTopicName}`);
+        },
+
+        cleanupRobotTopics() {
+            if (this.odomTopic) {
+                this.odomTopic.unsubscribe();
+                this.odomTopic = null;
+            }
+
+            this.cmdVelTopic = null;
+        },
+
+        resetRobotStatus() {
+            this.position.x = '--';
+            this.position.y = '--';
+            this.position.yaw = '--';
+
+            this.velocity.linear = '--';
+            this.velocity.angular = '--';
+        },
+
+        handleOdomMessage(msg) {
+            const px = msg.pose.pose.position.x;
+            const py = msg.pose.pose.position.y;
+            const yaw = this.quaternionToYaw(msg.pose.pose.orientation);
+
+            const linear = msg.twist.twist.linear.x;
+            const angular = msg.twist.twist.angular.z;
+
+            this.position.x = this.formatNumber(px, 2);
+            this.position.y = this.formatNumber(py, 2);
+            this.position.yaw = this.formatNumber(yaw, 2);
+
+            this.velocity.linear = this.formatNumber(linear, 2);
+            this.velocity.angular = this.formatNumber(angular, 2);
+        },
+
+        // ==================================================
+        // Service calls
+        // ==================================================
         callTriggerService(serviceName, label, onSuccess) {
             if (!this.connected || !this.ros) {
                 this.addLog('Cannot call service. ROSBridge is not connected.');
@@ -264,7 +384,7 @@ var app = new Vue({
             const services = {
                 simulation: {
                     nav2: '/web/start_nav2_stack',
-                    localization: '/web/start_self_localization_unstamped',
+                    localization: '/web/start_self_localizationunstamped',
                     mission: '/web/start_bt_mission'
                 },
 
@@ -290,20 +410,37 @@ var app = new Vue({
                 `Start Nav2 Stack - ${this.getModeLabel()}`,
                 () => {
                     this.nav2Running = true;
+                    this.localizationDone = false;
+                    this.showNav2Logs = true;
                 }
             );
         },
 
         startSelfLocalization() {
+            if (!this.nav2Running) {
+                this.addLog('Cannot localize. Start Nav2 Stack first.');
+                return;
+            }
+
             const serviceName = this.getServiceName('localization');
 
             this.callTriggerService(
                 serviceName,
-                `Start Self Localization - ${this.getModeLabel()}`
+                `Start Self Localization - ${this.getModeLabel()}`,
+                () => {
+                    this.localizationDone = true;
+                    this.addLog('Robot marked as localized.');
+                    this.addNav2Log('Robot marked as localized from web panel.');
+                }
             );
         },
 
         startBtMission() {
+            if (!this.canStartMission) {
+                this.addLog('Cannot start mission. Nav2 must be running and robot must be localized.');
+                return;
+            }
+
             const serviceName = this.getServiceName('mission');
 
             this.callTriggerService(
@@ -312,6 +449,7 @@ var app = new Vue({
                 () => {
                     this.missionRunning = true;
                     this.missionTriggered = false;
+                    this.showMissionLogs = true;
                 }
             );
         },
@@ -344,6 +482,9 @@ var app = new Vue({
             );
         },
 
+        // ==================================================
+        // Nav To Pose
+        // ==================================================
         sendNavToPose() {
             if (!this.nav2Running) {
                 this.addLog('Nav2 stack is not running.');
@@ -389,8 +530,39 @@ var app = new Vue({
             this.navToPoseTopic.publish(message);
 
             this.addLog(`Nav To Pose sent: x=${x}, y=${y}, yaw=${yaw}`);
+            this.addNav2Log(`Nav To Pose sent: x=${x}, y=${y}, yaw=${yaw}`);
         },
 
+        // ==================================================
+        // Joystick
+        // ==================================================
+        sendJoystickCommand(linearX, angularZ) {
+            if (!this.connected || !this.cmdVelTopic) {
+                this.addLog('Cannot send joystick command. cmd_vel topic is not ready.');
+                return;
+            }
+
+            const message = new ROSLIB.Message({
+                linear: {
+                    x: linearX,
+                    y: 0.0,
+                    z: 0.0
+                },
+                angular: {
+                    x: 0.0,
+                    y: 0.0,
+                    z: angularZ
+                }
+            });
+
+            this.cmdVelTopic.publish(message);
+
+            this.addNav2Log(`Joystick cmd_vel: linear.x=${linearX}, angular.z=${angularZ}`);
+        },
+
+        // ==================================================
+        // Elevator
+        // ==================================================
         toggleElevator() {
             if (!this.connected || !this.ros) {
                 this.addLog('Cannot publish elevator command. ROSBridge is not connected.');
@@ -398,18 +570,16 @@ var app = new Vue({
             }
 
             if (this.elevatorDirection === 'up') {
-                this.startElevatorPublisher('/elevator_up', 'up');
+                this.publishElevatorBurst('/elevator_up', 'up');
                 this.elevatorDirection = 'down';
             } else {
-                this.startElevatorPublisher('/elevator_down', 'down');
+                this.publishElevatorBurst('/elevator_down', 'down');
                 this.elevatorDirection = 'up';
             }
         },
 
-        startElevatorPublisher(topicName, direction) {
-            this.stopElevatorPublisher();
-
-            this.elevatorTopic = new ROSLIB.Topic({
+        publishElevatorBurst(topicName, direction) {
+            const topic = new ROSLIB.Topic({
                 ros: this.ros,
                 name: topicName,
                 messageType: 'std_msgs/String'
@@ -419,31 +589,26 @@ var app = new Vue({
                 data: ''
             });
 
-            this.elevatorTopic.publish(message);
+            let count = 0;
+            const maxCount = 5;
 
-            this.elevatorTimer = setInterval(() => {
-                if (this.connected && this.elevatorTopic) {
-                    this.elevatorTopic.publish(message);
+            const timer = setInterval(() => {
+                topic.publish(message);
+                count += 1;
+
+                if (count >= maxCount) {
+                    clearInterval(timer);
+                    this.addMissionLog(`Elevator ${direction.toUpperCase()} command published ${maxCount} times on ${topicName}`);
+                    this.addLog(`Elevator ${direction.toUpperCase()} command done.`);
                 }
             }, 200);
-
-            this.addLog(`Elevator ${direction.toUpperCase()} publishing at 5 Hz on ${topicName}`);
-        },
-
-        stopElevatorPublisher() {
-            if (this.elevatorTimer) {
-                clearInterval(this.elevatorTimer);
-                this.elevatorTimer = null;
-            }
-
-            this.elevatorTopic = null;
         }
     },
 
     beforeDestroy() {
         this.stopHeartbeat();
         this.cleanupWebTopics();
-        this.stopElevatorPublisher();
+        this.cleanupRobotTopics();
 
         if (this.ros) {
             this.ros.close();

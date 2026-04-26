@@ -17,9 +17,19 @@
     <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.min.js"></script>
 
     <style>
+        [v-cloak] {
+            display: none;
+        }
+
         body {
             background-color: #f8f9fa;
             padding: 20px 0;
+        }
+
+        .page-title {
+            text-align: center;
+            font-weight: 800;
+            margin-bottom: 20px;
         }
 
         .section-card {
@@ -37,8 +47,83 @@
             text-align: center;
         }
 
-        .connection-box {
+        .panel-subtitle {
             text-align: center;
+            color: #6c757d;
+            margin-bottom: 14px;
+        }
+
+        .status-pill {
+            display: inline-block;
+            padding: 9px 14px;
+            border-radius: 999px;
+            background: #e9ecef;
+            font-weight: 600;
+            margin: 4px;
+        }
+
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .status-box {
+            background: #f1f3f5;
+            border-radius: 10px;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .status-label {
+            font-size: 0.8rem;
+            color: #6c757d;
+            font-weight: 600;
+        }
+
+        .status-value {
+            font-size: 1.1rem;
+            font-weight: 800;
+        }
+
+        .status-connected {
+            color: #28a745;
+        }
+
+        .status-disconnected {
+            color: #dc3545;
+        }
+
+        .command-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+        }
+
+        .command-btn {
+            font-weight: 600;
+            border-radius: 10px;
+            padding: 12px 16px;
+        }
+
+        .nav-pose-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        .joystick-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 10px;
+            max-width: 260px;
+            margin: 0 auto;
+        }
+
+        .joystick-grid .empty {
+            visibility: hidden;
         }
 
         .log-window {
@@ -59,55 +144,148 @@
             padding-bottom: 4px;
         }
 
-        .status-pill {
-            display: inline-block;
-            padding: 10px 16px;
-            border-radius: 999px;
-            background: #e9ecef;
-            font-weight: 600;
-            margin-bottom: 15px;
-        }
-
-        .status-connected {
-            color: #28a745;
-        }
-
-        .status-disconnected {
-            color: #dc3545;
-        }
-
-        .command-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-            gap: 12px;
-        }
-
-        .command-btn {
-            font-weight: 600;
+        .logs-toggle {
+            width: 100%;
+            font-weight: 700;
             border-radius: 10px;
-            padding: 12px 16px;
+            margin-bottom: 12px;
         }
 
-        .nav-pose-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-            gap: 12px;
+        .disabled-help {
+            font-size: 0.9rem;
+            color: #6c757d;
+            text-align: center;
+            margin-top: 10px;
         }
 
-        .log-window-large {
-            height: 360px;
+        .connection-box {
+            text-align: center;
         }
 
-        [v-cloak] {
-            display: none;
+        @media (max-width: 991px) {
+            .section-card {
+                margin-bottom: 16px;
+            }
         }
     </style>
 </head>
 
 <body>
-    <div id="app" class="container" v-cloak>
-        <div class="row justify-content-center">
-            <div class="col-lg-8 col-md-10">
+    <div id="app" class="container-fluid" v-cloak>
+        <h2 class="page-title">Robot Web Control Panel</h2>
+
+        <div class="row">
+            <!-- LEFT: NAV2 / ROBOT -->
+            <div class="col-lg-4 col-md-12">
+                <div class="section-card" v-if="connected && nav2Running">
+                    <div class="panel-title">Nav2 / Robot</div>
+
+                    <div class="status-grid">
+                        <div class="status-box">
+                            <div class="status-label">Position X</div>
+                            <div class="status-value">{{ position.x }}</div>
+                        </div>
+
+                        <div class="status-box">
+                            <div class="status-label">Position Y</div>
+                            <div class="status-value">{{ position.y }}</div>
+                        </div>
+
+                        <div class="status-box">
+                            <div class="status-label">Yaw</div>
+                            <div class="status-value">{{ position.yaw }}</div>
+                        </div>
+
+                        <div class="status-box">
+                            <div class="status-label">Linear Vel</div>
+                            <div class="status-value">{{ velocity.linear }}</div>
+                        </div>
+
+                        <div class="status-box">
+                            <div class="status-label">Angular Vel</div>
+                            <div class="status-value">{{ velocity.angular }}</div>
+                        </div>
+                    </div>
+
+                    <hr />
+
+                    <div class="panel-title">Nav To Pose</div>
+
+                    <div class="nav-pose-grid">
+                        <input type="number" step="0.01" class="form-control" placeholder="X" v-model="navGoal.x" />
+
+                        <input type="number" step="0.01" class="form-control" placeholder="Y" v-model="navGoal.y" />
+
+                        <input type="number" step="0.01" class="form-control" placeholder="Yaw radians"
+                            v-model="navGoal.yaw" />
+
+                        <button class="btn btn-primary command-btn" @click="sendNavToPose">
+                            Nav To Pose
+                        </button>
+                    </div>
+
+                    <hr />
+
+                    <div class="panel-title">Joystick</div>
+                    <div class="panel-subtitle">Each click sends 0.1 velocity command</div>
+
+                    <div class="joystick-grid">
+                        <div class="empty"></div>
+
+                        <button class="btn btn-secondary command-btn" @click="sendJoystickCommand(0.1, 0.0)">
+                            ↑
+                        </button>
+
+                        <div class="empty"></div>
+
+                        <button class="btn btn-secondary command-btn" @click="sendJoystickCommand(0.0, 0.1)">
+                            ←
+                        </button>
+
+                        <button class="btn btn-dark command-btn" @click="sendJoystickCommand(0.0, 0.0)">
+                            Stop
+                        </button>
+
+                        <button class="btn btn-secondary command-btn" @click="sendJoystickCommand(0.0, -0.1)">
+                            →
+                        </button>
+
+                        <div class="empty"></div>
+
+                        <button class="btn btn-secondary command-btn" @click="sendJoystickCommand(-0.1, 0.0)">
+                            ↓
+                        </button>
+
+                        <div class="empty"></div>
+                    </div>
+
+                    <hr />
+
+                    <button class="btn btn-outline-dark logs-toggle" @click="showNav2Logs = !showNav2Logs">
+                        {{ showNav2Logs ? 'HIDE NAV2 LOGS' : 'SHOW NAV2 LOGS' }}
+                    </button>
+
+                    <div class="log-window" v-if="showNav2Logs">
+                        <div class="log-entry" v-for="(log, index) in nav2Logs" :key="index">
+                            {{ log }}
+                        </div>
+
+                        <div v-if="nav2Logs.length === 0">
+                            No Nav2 logs yet.
+                        </div>
+                    </div>
+                </div>
+
+                <div class="section-card" v-if="connected && !nav2Running">
+                    <div class="panel-title">Nav2 / Robot</div>
+                    <div class="panel-subtitle">
+                        Start Nav2 Stack to show Nav To Pose, odom status and joystick.
+                    </div>
+                </div>
+            </div>
+
+            <!-- CENTER: ROSBRIDGE / CONTROL -->
+            <div class="col-lg-4 col-md-12">
                 <div class="section-card connection-box">
                     <div class="panel-title">ROSBridge Connection</div>
 
@@ -122,20 +300,22 @@
                             placeholder="ws://localhost:9090" :disabled="connected || loading" />
                     </div>
 
-                    <button class="btn btn-success" @click="connect" :disabled="loading || connected" v-if="!connected">
+                    <button class="btn btn-success command-btn" @click="connect" :disabled="loading || connected"
+                        v-if="!connected">
                         Connect
                     </button>
 
-                    <button class="btn btn-danger" @click="disconnect" :disabled="loading" v-if="connected">
+                    <button class="btn btn-danger command-btn" @click="disconnect" :disabled="loading" v-if="connected">
                         Disconnect
                     </button>
                 </div>
+
                 <div class="section-card" v-if="connected">
-                    <div class="panel-title">Robot Startup Commands</div>
+                    <div class="panel-title">Startup Control</div>
 
                     <div class="form-group">
                         <label>Mode</label>
-                        <select v-model="selectedMode" class="form-control">
+                        <select v-model="selectedMode" class="form-control" :disabled="nav2Running || missionRunning">
                             <option value="simulation">Simulation</option>
                             <option value="real">Real robot</option>
                         </select>
@@ -147,47 +327,23 @@
                             {{ nav2Running ? 'NAV2 RUNNING' : 'Start Nav2 Stack' }}
                         </button>
 
-                        <button class="btn btn-info command-btn" @click="startSelfLocalization">
-                            Start Self Localization
-                        </button>
-
-                        <button
-                            :class="missionRunning ? 'btn btn-secondary command-btn' : 'btn btn-warning command-btn'"
-                            :disabled="missionRunning" @click="startBtMission">
-                            {{ missionRunning ? 'MISSION RUNNING' : 'Run BT Mission' }}
-                        </button>
-
-                        <button v-if="missionRunning"
-                            :class="missionTriggered ? 'btn btn-danger command-btn' : 'btn btn-success command-btn'"
-                            @click="triggerOrAbortMission">
-                            {{ missionTriggered ? 'ABORT MISSION' : 'Trigger Mission' }}
-                        </button>
-
-                        <button class="btn btn-dark command-btn" @click="toggleElevator">
-                            {{ elevatorDirection === 'up' ? 'ELEVATOR UP' : 'ELEVATOR DOWN' }}
+                        <button :class="localizationDone ? 'btn btn-secondary command-btn' : 'btn btn-info command-btn'"
+                            :disabled="!nav2Running || localizationDone" @click="startSelfLocalization">
+                            {{ localizationDone ? 'ROBOT LOCALIZED' : 'Start Self Localization' }}
                         </button>
                     </div>
-                </div>
-                <div class="section-card" v-if="connected && nav2Running">
-                    <div class="panel-title">Nav To Pose</div>
 
-                    <div class="nav-pose-grid">
-                        <input type="number" step="0.01" class="form-control" placeholder="X" v-model="navGoal.x" />
-
-                        <input type="number" step="0.01" class="form-control" placeholder="Y" v-model="navGoal.y" />
-
-                        <input type="number" step="0.01" class="form-control" placeholder="Yaw radians"
-                            v-model="navGoal.yaw" />
-
-                        <button class="btn btn-primary" @click="sendNavToPose">
-                            Nav To Pose
-                        </button>
+                    <div class="disabled-help" v-if="!nav2Running">
+                        Self localization becomes available after Nav2 Stack starts.
                     </div>
                 </div>
+
                 <div class="section-card">
-                    <div class="panel-title">System Log</div>
+                    <button class="btn btn-outline-dark logs-toggle" @click="showSystemLogs = !showSystemLogs">
+                        {{ showSystemLogs ? 'HIDE SYSTEM LOGS' : 'SHOW SYSTEM LOGS' }}
+                    </button>
 
-                    <div class="log-window">
+                    <div class="log-window" v-if="showSystemLogs">
                         <div class="log-entry" v-for="(log, index) in logs" :key="index">
                             {{ log }}
                         </div>
@@ -197,25 +353,50 @@
                         </div>
                     </div>
                 </div>
+            </div>
 
-                <div class="section-card" v-if="nav2Running">
-                    <div class="panel-title">Nav2 Stack Logs</div>
+            <!-- RIGHT: MISSION / ELEVATOR -->
+            <div class="col-lg-4 col-md-12">
+                <div class="section-card" v-if="connected">
+                    <div class="panel-title">Mission</div>
 
-                    <div class="log-window log-window-large">
-                        <div class="log-entry" v-for="(log, index) in nav2Logs" :key="index">
-                            {{ log }}
-                        </div>
+                    <div class="command-grid">
+                        <button
+                            :class="missionRunning ? 'btn btn-secondary command-btn' : 'btn btn-warning command-btn'"
+                            :disabled="!canStartMission || missionRunning" @click="startBtMission">
+                            {{ missionRunning ? 'MISSION RUNNING' : 'Run BT Mission' }}
+                        </button>
 
-                        <div v-if="nav2Logs.length === 0">
-                            No Nav2 logs yet.
-                        </div>
+                        <button v-if="missionRunning"
+                            :class="missionTriggered ? 'btn btn-danger command-btn' : 'btn btn-success command-btn'"
+                            @click="triggerOrAbortMission">
+                            {{ missionTriggered ? 'ABORT MISSION' : 'Trigger Mission' }}
+                        </button>
                     </div>
-                </div>
 
-                <div class="section-card" v-if="missionRunning">
-                    <div class="panel-title">Mission Logs</div>
+                    <div class="disabled-help" v-if="!canStartMission">
+                        Mission unlocks after Nav2 Stack is running and self localization is done.
+                    </div>
 
-                    <div class="log-window log-window-large">
+                    <hr />
+
+                    <div class="panel-title">Elevator</div>
+
+                    <button class="btn btn-dark command-btn btn-block" @click="toggleElevator">
+                        {{ elevatorDirection === 'up' ? 'ELEVATOR UP' : 'ELEVATOR DOWN' }}
+                    </button>
+
+                    <div class="disabled-help">
+                        Elevator command publishes 5 messages and then stops.
+                    </div>
+
+                    <hr />
+
+                    <button class="btn btn-outline-dark logs-toggle" @click="showMissionLogs = !showMissionLogs">
+                        {{ showMissionLogs ? 'HIDE MISSION LOGS' : 'SHOW MISSION LOGS' }}
+                    </button>
+
+                    <div class="log-window" v-if="showMissionLogs">
                         <div class="log-entry" v-for="(log, index) in missionLogs" :key="index">
                             {{ log }}
                         </div>
@@ -225,11 +406,18 @@
                         </div>
                     </div>
                 </div>
+
+                <div class="section-card" v-if="!connected">
+                    <div class="panel-title">Mission</div>
+                    <div class="panel-subtitle">
+                        Connect through ROSBridge to enable mission controls.
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
-    <script src="main.js?v=1"></script>
+    <script src="main.js?v=5"></script>
 </body>
 
 </html>
