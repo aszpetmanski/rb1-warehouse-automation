@@ -174,7 +174,7 @@ def parse_args():
     parser.add_argument(
         '--target-yaw',
         type=float,
-        default=math.pi,
+        default= 2.0 * math.pi,
         help='Target accumulated yaw in radians, default = 360 deg',
     )
     parser.add_argument(
