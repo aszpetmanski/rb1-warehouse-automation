@@ -6,11 +6,90 @@
 #include <tf2/LinearMath/Quaternion.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
 
+#include <algorithm>
+#include <cctype>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <vector>
 
 namespace rb1_bt {
+
+namespace {
+
+std::string trim(const std::string &input) {
+  auto first =
+      std::find_if_not(input.begin(), input.end(),
+                       [](unsigned char c) { return std::isspace(c); });
+
+  auto last =
+      std::find_if_not(input.rbegin(), input.rend(), [](unsigned char c) {
+        return std::isspace(c);
+      }).base();
+
+  if (first >= last) {
+    return "";
+  }
+
+  return std::string(first, last);
+}
+
+bool parseSimplePose2DString(const std::string &text, SimplePose2D &pose,
+                             std::string &error) {
+  std::stringstream ss(text);
+  std::string token;
+  std::vector<std::string> tokens;
+
+  while (std::getline(ss, token, ',')) {
+    tokens.push_back(trim(token));
+  }
+
+  if (tokens.size() != 3) {
+    error = "expected x,y,yaw but got [" + text + "]";
+    return false;
+  }
+
+  try {
+    pose.x = std::stod(tokens[0]);
+    pose.y = std::stod(tokens[1]);
+    pose.yaw = std::stod(tokens[2]);
+  } catch (const std::exception &e) {
+    error = "failed to parse x,y,yaw from [" + text + "]: " + e.what();
+    return false;
+  }
+
+  return true;
+}
+
+bool readDropoffWaypointRosParameter(const rclcpp::Node::SharedPtr &node,
+                                     SimplePose2D &dropoff_waypoint,
+                                     std::string &raw_value,
+                                     std::string &error) {
+  raw_value.clear();
+
+  rclcpp::Parameter parameter;
+
+  if (!node->get_parameter("dropoff_waypoint", parameter)) {
+    error = "ROS parameter [dropoff_waypoint] is not declared or not set";
+    return false;
+  }
+
+  if (parameter.get_type() != rclcpp::ParameterType::PARAMETER_STRING) {
+    error = "ROS parameter [dropoff_waypoint] is not a string";
+    return false;
+  }
+
+  raw_value = trim(parameter.as_string());
+
+  if (raw_value.empty()) {
+    error = "ROS parameter [dropoff_waypoint] is empty";
+    return false;
+  }
+
+  return parseSimplePose2DString(raw_value, dropoff_waypoint, error);
+}
+
+} // namespace
 
 InitShelfMission::InitShelfMission(const std::string &name,
                                    const BT::NodeConfiguration &config)
@@ -24,6 +103,7 @@ bool InitShelfMission::initializeRosNode() {
           "InitShelfMission: missing ROS node on blackboard");
     }
   }
+
   return true;
 }
 
@@ -79,12 +159,6 @@ BT::NodeStatus InitShelfMission::tick() {
     return BT::NodeStatus::FAILURE;
   }
 
-  if (!getInput("dropoff_waypoint", dropoff_waypoint)) {
-    RCLCPP_ERROR(node_->get_logger(),
-                 "InitShelfMission: missing input [dropoff_waypoint]");
-    return BT::NodeStatus::FAILURE;
-  }
-
   if (!getInput("init_waypoint", init_waypoint)) {
     RCLCPP_ERROR(node_->get_logger(),
                  "InitShelfMission: missing input [init_waypoint]");
@@ -97,6 +171,34 @@ BT::NodeStatus InitShelfMission::tick() {
     RCLCPP_ERROR(node_->get_logger(),
                  "InitShelfMission: patrol_waypoints_input is empty");
     return BT::NodeStatus::FAILURE;
+  }
+
+  std::string dropoff_source = "BT XML input";
+  std::string raw_dropoff_parameter;
+  std::string dropoff_parameter_error;
+
+  const bool got_dropoff_from_parameter = readDropoffWaypointRosParameter(
+      node_, dropoff_waypoint, raw_dropoff_parameter, dropoff_parameter_error);
+
+  if (got_dropoff_from_parameter) {
+    dropoff_source = "ROS parameter dropoff_waypoint";
+
+    RCLCPP_INFO(
+        node_->get_logger(),
+        "InitShelfMission: using dropoff waypoint from ROS parameter: %s",
+        raw_dropoff_parameter.c_str());
+  } else {
+    RCLCPP_INFO(node_->get_logger(),
+                "InitShelfMission: ROS parameter dropoff_waypoint not used: %s",
+                dropoff_parameter_error.c_str());
+
+    if (!getInput("dropoff_waypoint", dropoff_waypoint)) {
+      RCLCPP_ERROR(
+          node_->get_logger(),
+          "InitShelfMission: missing input [dropoff_waypoint] and no valid "
+          "ROS parameter [dropoff_waypoint] was available");
+      return BT::NodeStatus::FAILURE;
+    }
   }
 
   const auto dropoff_pose = scan_utils::buildPoseStampedFromWaypoint(
@@ -137,10 +239,10 @@ BT::NodeStatus InitShelfMission::tick() {
   RCLCPP_INFO(
       node_->get_logger(),
       "InitShelfMission: initialized mission with %zu patrol waypoints, "
-      "dropoff=(%.3f, %.3f, %.3f), init=(%.3f, %.3f, %.3f)",
+      "dropoff=(%.3f, %.3f, %.3f) from %s, init=(%.3f, %.3f, %.3f)",
       patrol_waypoints.size(), dropoff_waypoint.x, dropoff_waypoint.y,
-      dropoff_waypoint.yaw, init_waypoint.x, init_waypoint.y,
-      init_waypoint.yaw);
+      dropoff_waypoint.yaw, dropoff_source.c_str(), init_waypoint.x,
+      init_waypoint.y, init_waypoint.yaw);
 
   return BT::NodeStatus::SUCCESS;
 }

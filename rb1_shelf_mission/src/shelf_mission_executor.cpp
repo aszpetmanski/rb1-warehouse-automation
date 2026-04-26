@@ -6,6 +6,7 @@
 #include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 
+#include <atomic>
 #include <chrono>
 #include <memory>
 #include <mutex>
@@ -22,6 +23,8 @@ public:
     declare_parameter<int>("server_timeout_ms", 2000);
     declare_parameter<int>("wait_for_service_timeout_ms", 2000);
     declare_parameter<bool>("autostart", false);
+    declare_parameter<bool>("exit_on_finish", true);
+    declare_parameter<std::string>("dropoff_waypoint", "");
     declare_parameter<std::vector<std::string>>("plugin_libs",
                                                 std::vector<std::string>{});
 
@@ -45,6 +48,11 @@ public:
                           std::bind(&ShelfMissionExecutor::tickTree, this));
 
     RCLCPP_INFO(get_logger(), "ShelfMissionExecutor started");
+    RCLCPP_INFO(get_logger(), "tree_xml_file: %s", tree_xml_file_.c_str());
+    RCLCPP_INFO(get_logger(), "dropoff_waypoint: %s",
+                dropoff_waypoint_.c_str());
+    RCLCPP_INFO(get_logger(), "exit_on_finish: %s",
+                exit_on_finish_ ? "true" : "false");
   }
 
   void initialize(const rclcpp::Node::SharedPtr &self_node) {
@@ -61,6 +69,8 @@ public:
     }
   }
 
+  int exitCode() const { return requested_exit_code_.load(); }
+
 private:
   void readParameters() {
     get_parameter("tree_xml_file", tree_xml_file_);
@@ -68,7 +78,22 @@ private:
     get_parameter("server_timeout_ms", server_timeout_ms_);
     get_parameter("wait_for_service_timeout_ms", wait_for_service_timeout_ms_);
     get_parameter("autostart", autostart_);
+    get_parameter("exit_on_finish", exit_on_finish_);
+    get_parameter("dropoff_waypoint", dropoff_waypoint_);
     get_parameter("plugin_libs", plugin_libs_);
+  }
+
+  void requestProcessExit(int exit_code, const std::string &reason) {
+    requested_exit_code_.store(exit_code);
+
+    RCLCPP_INFO(get_logger(),
+                "Requesting ShelfMissionExecutor process exit. code=%d, "
+                "reason=%s",
+                exit_code, reason.c_str());
+
+    if (rclcpp::ok()) {
+      rclcpp::shutdown();
+    }
   }
 
   bool loadPluginsIfNeeded(std::string &error_msg) {
@@ -81,6 +106,7 @@ private:
         RCLCPP_INFO(get_logger(), "Loading BT plugin: %s", lib.c_str());
         factory_.registerFromPlugin(lib);
       }
+
       plugins_loaded_ = true;
       return true;
     } catch (const std::exception &e) {
@@ -141,6 +167,12 @@ private:
 
     readParameters();
 
+    RCLCPP_INFO(get_logger(), "Starting shelf mission");
+    RCLCPP_INFO(get_logger(), "Using tree_xml_file: %s",
+                tree_xml_file_.c_str());
+    RCLCPP_INFO(get_logger(), "Using dropoff_waypoint: %s",
+                dropoff_waypoint_.c_str());
+
     std::string error_msg;
     if (!createTree(error_msg)) {
       message = error_msg;
@@ -181,6 +213,21 @@ private:
     return true;
   }
 
+  void cleanupFinishedTree() {
+    try {
+      if (tree_) {
+        tree_->haltTree();
+      }
+    } catch (const std::exception &e) {
+      RCLCPP_WARN(get_logger(), "Exception while halting finished tree: %s",
+                  e.what());
+    }
+
+    running_ = false;
+    tree_.reset();
+    blackboard_.reset();
+  }
+
   void tickTree() {
     std::scoped_lock<std::mutex> lock(mutex_);
 
@@ -194,9 +241,15 @@ private:
       status = tree_->tickRoot();
     } catch (const std::exception &e) {
       RCLCPP_ERROR(get_logger(), "BT tick exception: %s", e.what());
+
       running_ = false;
       tree_.reset();
       blackboard_.reset();
+
+      if (exit_on_finish_) {
+        requestProcessExit(1, "BT tick exception");
+      }
+
       return;
     }
 
@@ -206,25 +259,29 @@ private:
       return;
     }
 
+    int exit_code = 1;
+    std::string finish_reason = "mission finished with unknown status";
+
     if (status == BT::NodeStatus::SUCCESS) {
       RCLCPP_INFO(get_logger(), "Shelf mission finished with SUCCESS");
+      exit_code = 0;
+      finish_reason = "mission success";
     } else if (status == BT::NodeStatus::FAILURE) {
       RCLCPP_WARN(get_logger(), "Shelf mission finished with FAILURE");
+      exit_code = 1;
+      finish_reason = "mission failure";
     } else {
       RCLCPP_WARN(get_logger(),
                   "Shelf mission finished with unexpected status");
+      exit_code = 1;
+      finish_reason = "mission unexpected status";
     }
 
-    try {
-      tree_->haltTree();
-    } catch (const std::exception &e) {
-      RCLCPP_WARN(get_logger(), "Exception while halting finished tree: %s",
-                  e.what());
-    }
+    cleanupFinishedTree();
 
-    running_ = false;
-    tree_.reset();
-    blackboard_.reset();
+    if (exit_on_finish_) {
+      requestProcessExit(exit_code, finish_reason);
+    }
   }
 
   void handleStart(
@@ -251,6 +308,8 @@ private:
   int server_timeout_ms_{2000};
   int wait_for_service_timeout_ms_{2000};
   bool autostart_{false};
+  bool exit_on_finish_{true};
+  std::string dropoff_waypoint_;
   std::vector<std::string> plugin_libs_;
 
   bool plugins_loaded_{false};
@@ -260,6 +319,8 @@ private:
   std::shared_ptr<BT::Blackboard> blackboard_;
   std::shared_ptr<BT::Tree> tree_;
   BT::NodeStatus last_status_{BT::NodeStatus::IDLE};
+
+  std::atomic<int> requested_exit_code_{0};
 
   rclcpp::Node::SharedPtr self_node_;
 
@@ -278,6 +339,12 @@ int main(int argc, char **argv) {
   node->initialize(node);
 
   rclcpp::spin(node);
-  rclcpp::shutdown();
-  return 0;
+
+  const int exit_code = node->exitCode();
+
+  if (rclcpp::ok()) {
+    rclcpp::shutdown();
+  }
+
+  return exit_code;
 }

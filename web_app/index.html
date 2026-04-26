@@ -162,6 +162,14 @@
             text-align: center;
         }
 
+        .small-topic-label {
+            font-size: 0.8rem;
+            color: #6c757d;
+            text-align: center;
+            margin-top: 8px;
+            word-break: break-word;
+        }
+
         @media (max-width: 991px) {
             .section-card {
                 margin-bottom: 16px;
@@ -180,19 +188,23 @@
                 <div class="section-card" v-if="connected && nav2Running">
                     <div class="panel-title">Nav2 / Robot</div>
 
+                    <div class="panel-subtitle">
+                        Robot pose is shown in the map frame.
+                    </div>
+
                     <div class="status-grid">
                         <div class="status-box">
-                            <div class="status-label">Position X</div>
+                            <div class="status-label">Map X</div>
                             <div class="status-value">{{ position.x }}</div>
                         </div>
 
                         <div class="status-box">
-                            <div class="status-label">Position Y</div>
+                            <div class="status-label">Map Y</div>
                             <div class="status-value">{{ position.y }}</div>
                         </div>
 
                         <div class="status-box">
-                            <div class="status-label">Yaw</div>
+                            <div class="status-label">Map Yaw</div>
                             <div class="status-value">{{ position.yaw }}</div>
                         </div>
 
@@ -212,9 +224,11 @@
                     <div class="panel-title">Nav To Pose</div>
 
                     <div class="nav-pose-grid">
-                        <input type="number" step="0.01" class="form-control" placeholder="X" v-model="navGoal.x" />
+                        <input type="number" step="0.01" class="form-control" placeholder="X in map"
+                            v-model="navGoal.x" />
 
-                        <input type="number" step="0.01" class="form-control" placeholder="Y" v-model="navGoal.y" />
+                        <input type="number" step="0.01" class="form-control" placeholder="Y in map"
+                            v-model="navGoal.y" />
 
                         <input type="number" step="0.01" class="form-control" placeholder="Yaw radians"
                             v-model="navGoal.yaw" />
@@ -227,36 +241,40 @@
                     <hr />
 
                     <div class="panel-title">Joystick</div>
-                    <div class="panel-subtitle">Each click sends 0.1 velocity command</div>
+                    <div class="panel-subtitle">Linear speed 0.1, angular speed 0.25</div>
 
                     <div class="joystick-grid">
                         <div class="empty"></div>
 
-                        <button class="btn btn-secondary command-btn" @click="sendJoystickCommand(0.1, 0.0)">
+                        <button class="btn btn-secondary command-btn" @click="sendJoystickForward">
                             ↑
                         </button>
 
                         <div class="empty"></div>
 
-                        <button class="btn btn-secondary command-btn" @click="sendJoystickCommand(0.0, 0.1)">
+                        <button class="btn btn-secondary command-btn" @click="sendJoystickLeft">
                             ←
                         </button>
 
-                        <button class="btn btn-dark command-btn" @click="sendJoystickCommand(0.0, 0.0)">
+                        <button class="btn btn-dark command-btn" @click="sendJoystickStop">
                             Stop
                         </button>
 
-                        <button class="btn btn-secondary command-btn" @click="sendJoystickCommand(0.0, -0.1)">
+                        <button class="btn btn-secondary command-btn" @click="sendJoystickRight">
                             →
                         </button>
 
                         <div class="empty"></div>
 
-                        <button class="btn btn-secondary command-btn" @click="sendJoystickCommand(-0.1, 0.0)">
+                        <button class="btn btn-secondary command-btn" @click="sendJoystickBackward">
                             ↓
                         </button>
 
                         <div class="empty"></div>
+                    </div>
+
+                    <div class="small-topic-label">
+                        cmd_vel topic: {{ cmdVelTopicName }}
                     </div>
 
                     <hr />
@@ -279,7 +297,7 @@
                 <div class="section-card" v-if="connected && !nav2Running">
                     <div class="panel-title">Nav2 / Robot</div>
                     <div class="panel-subtitle">
-                        Start Nav2 Stack to show Nav To Pose, odom status and joystick.
+                        Start Nav2 Stack to show Nav To Pose, map-frame robot pose, odom velocity and joystick.
                     </div>
                 </div>
             </div>
@@ -321,6 +339,12 @@
                         </select>
                     </div>
 
+                    <div class="small-topic-label">
+                        Mode config loaded: {{ webConfigLoaded ? 'yes' : 'waiting for /web/config' }}
+                    </div>
+
+                    <hr />
+
                     <div class="command-grid">
                         <button :class="nav2Running ? 'btn btn-secondary command-btn' : 'btn btn-primary command-btn'"
                             :disabled="nav2Running" @click="startNav2Stack">
@@ -360,10 +384,26 @@
                 <div class="section-card" v-if="connected">
                     <div class="panel-title">Mission</div>
 
+                    <div class="form-group">
+                        <label>Dropoff waypoint</label>
+
+                        <select v-model="selectedDropoffWaypoint" class="form-control"
+                            :disabled="missionRunning || dropoffWaypoints.length === 0">
+                            <option v-for="wp in dropoffWaypoints" :key="wp.value" :value="wp.value">
+                                {{ wp.label }} — {{ wp.value }}
+                            </option>
+                        </select>
+
+                        <div class="disabled-help" v-if="dropoffWaypoints.length === 0">
+                            No dropoff waypoints loaded for this mode.
+                        </div>
+                    </div>
+
                     <div class="command-grid">
                         <button
                             :class="missionRunning ? 'btn btn-secondary command-btn' : 'btn btn-warning command-btn'"
-                            :disabled="!canStartMission || missionRunning" @click="startBtMission">
+                            :disabled="!canStartMission || missionRunning || !selectedDropoffWaypoint"
+                            @click="startBtMission">
                             {{ missionRunning ? 'MISSION RUNNING' : 'Run BT Mission' }}
                         </button>
 
@@ -417,7 +457,7 @@
         </div>
     </div>
 
-    <script src="main.js?v=5"></script>
+    <script src="main.js?v=6"></script>
 </body>
 
 </html>

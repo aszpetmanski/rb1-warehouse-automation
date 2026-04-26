@@ -4,6 +4,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, OpaqueFunction
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 from ament_index_python.packages import get_package_share_directory, get_package_prefix
 
 
@@ -16,6 +17,14 @@ def launch_setup(context, *args, **kwargs):
     sim = sim_value in ['true', '1', 'yes']
 
     use_sim_time = sim
+
+    dropoff_waypoint_value = LaunchConfiguration('dropoff_waypoint').perform(context)
+
+    if not dropoff_waypoint_value:
+        if sim:
+            dropoff_waypoint_value = '2.4,0.05,1.57'
+        else:
+            dropoff_waypoint_value = '1.73,2.68,2.01'
 
     mission_pkg_share = get_package_share_directory('rb1_shelf_mission')
 
@@ -67,7 +76,19 @@ def launch_setup(context, *args, **kwargs):
                 'server_timeout_ms': 2000,
                 'wait_for_service_timeout_ms': 2000,
                 'autostart': False,
+                'exit_on_finish': True,
                 'plugin_libs': plugin_libs,
+
+                # Passed from web_process_manager:
+                #   dropoff_waypoint:=x,y,yaw
+                #
+                # Example:
+                #   ros2 launch rb1_shelf_mission find_and_carry_shelf.launch.py \
+                #     dropoff_waypoint:=2.4,0.05,1.57
+                'dropoff_waypoint': ParameterValue(
+                    dropoff_waypoint_value,
+                    value_type=str
+                ),
             }],
         )
     ]
@@ -80,5 +101,12 @@ def generate_launch_description():
             default_value='true',
             description='Use simulation time'
         ),
+
+        DeclareLaunchArgument(
+            'dropoff_waypoint',
+            default_value='',
+            description='Shelf dropoff waypoint as x,y,yaw'
+        ),
+
         OpaqueFunction(function=launch_setup)
     ])

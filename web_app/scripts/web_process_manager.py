@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import json
 import os
 import signal
 import subprocess
@@ -9,11 +10,16 @@ from pathlib import Path
 import rclpy
 from rclpy.node import Node
 from rclpy.action import ActionClient
+from rclpy.qos import QoSProfile, DurabilityPolicy
+from rclpy.time import Time
 
 from std_srvs.srv import Trigger
 from std_msgs.msg import String
 from geometry_msgs.msg import PoseStamped
+from nav_msgs.msg import Odometry
 from nav2_msgs.action import NavigateToPose
+
+from tf2_ros import Buffer, TransformListener, TransformException
 
 
 class WebProcessManager(Node):
@@ -31,12 +37,44 @@ class WebProcessManager(Node):
         self.nav2_status_pub = self.create_publisher(String, '/web/status/nav2', 10)
         self.mission_status_pub = self.create_publisher(String, '/web/status/mission', 10)
 
+        config_qos = QoSProfile(depth=1)
+        config_qos.durability = DurabilityPolicy.TRANSIENT_LOCAL
+
+        self.web_config_pub = self.create_publisher(
+            String,
+            '/web/config',
+            config_qos
+        )
+
+        self.robot_pose_map_pub = self.create_publisher(
+            PoseStamped,
+            '/web/robot_pose_map',
+            10
+        )
+
         self.nav_to_pose_sub = self.create_subscription(
             PoseStamped,
             '/web/nav_to_pose',
             self.handle_nav_to_pose,
             10
         )
+
+        self.selected_dropoff_sub = self.create_subscription(
+            String,
+            '/web/selected_dropoff_waypoint',
+            self.handle_selected_dropoff_waypoint,
+            10
+        )
+
+        self.odom_sub = self.create_subscription(
+            Odometry,
+            '/odom',
+            self.handle_odom_for_base_frame,
+            10
+        )
+
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self)
 
         self.nav_action_client = ActionClient(
             self,
@@ -45,6 +83,49 @@ class WebProcessManager(Node):
         )
 
         self.last_feedback_log_time = 0.0
+        self.robot_base_frame = 'base_link'
+
+        self.web_config = {
+            'modes': {
+                'simulation': {
+                    'cmd_vel_topic': '/diffbot_base_controller/cmd_vel_unstamped',
+                    'dropoff_waypoints': [
+                        {
+                            'label': 'SIM dropoff',
+                            'value': '2.4,0.05,1.57'
+                        }
+                    ]
+                },
+                'real': {
+                    'cmd_vel_topic': '/cmd_vel',
+                    'dropoff_waypoints': [
+                        {
+                            'label': 'po prawej górna',
+                            'value': '1.73,2.68,2.01'
+                        },
+                        {
+                            'label': 'po prawej środkowa',
+                            'value': '2.29,3.45,1.98'
+                        },
+                        {
+                            'label': 'po prawej dolna',
+                            'value': '3.132,3.449,2.035'
+                        },
+                        {
+                            'label': 'tam gdzie była',
+                            'value': '4.46,3.577,-1.11'
+                        },
+                        {
+                            'label': 'koło ładowarki',
+                            'value': '1.927,1.394,-1.116'
+                        }
+                    ]
+                }
+            }
+        }
+
+        self.selected_mode = 'simulation'
+        self.selected_dropoff_waypoint = '2.4,0.05,1.57'
 
         self.commands = {
             'nav2_stack': {
@@ -67,19 +148,30 @@ class WebProcessManager(Node):
             },
             'self_localization_unstamped': {
                 'service': '/web/start_self_localization_unstamped',
-                'command': 'ros2 run rb1_nav2_bringup startup_localizer.py --cmd-vel-topic /diffbot_base_controller/cmd_vel_unstamped',
+                'command': (
+                    'ros2 run rb1_nav2_bringup startup_localizer.py '
+                    '--cmd-vel-topic /diffbot_base_controller/cmd_vel_unstamped '
+                    '--target-yaw 3.14'
+                ),
                 'process_group': 'localization',
                 'log_group': 'nav2'
             },
             'bt_mission': {
                 'service': '/web/start_bt_mission',
-                'command': 'ros2 launch rb1_shelf_mission find_and_carry_shelf.launch.py',
+                'command': (
+                    'ros2 launch rb1_shelf_mission find_and_carry_shelf.launch.py '
+                    'dropoff_waypoint:={dropoff_waypoint}'
+                ),
                 'process_group': 'mission',
                 'log_group': 'mission'
             },
             'bt_mission_real': {
                 'service': '/web/start_bt_mission_real',
-                'command': 'ros2 launch rb1_shelf_mission find_and_carry_shelf.launch.py sim:=false',
+                'command': (
+                    'ros2 launch rb1_shelf_mission find_and_carry_shelf.launch.py '
+                    'sim:=false '
+                    'dropoff_waypoint:={dropoff_waypoint}'
+                ),
                 'process_group': 'mission',
                 'log_group': 'mission'
             },
@@ -107,6 +199,8 @@ class WebProcessManager(Node):
         )
 
         self.create_timer(1.0, self.publish_status)
+        self.create_timer(2.0, self.publish_web_config)
+        self.create_timer(0.2, self.publish_robot_pose_map)
 
         self.get_logger().info('Web process manager is ready.')
 
@@ -130,6 +224,67 @@ class WebProcessManager(Node):
             self.nav2_log_pub.publish(msg)
         elif log_group == 'mission':
             self.mission_log_pub.publish(msg)
+
+    def publish_web_config(self):
+        msg = String()
+        msg.data = json.dumps(self.web_config, ensure_ascii=False)
+        self.web_config_pub.publish(msg)
+
+    def handle_selected_dropoff_waypoint(self, msg):
+        try:
+            data = json.loads(msg.data)
+
+            mode = data.get('mode')
+            value = data.get('value')
+
+            if mode not in self.web_config['modes']:
+                self.publish_log('mission', f'Rejected waypoint. Unknown mode: {mode}')
+                return
+
+            allowed_values = [
+                waypoint['value']
+                for waypoint in self.web_config['modes'][mode]['dropoff_waypoints']
+            ]
+
+            if value not in allowed_values:
+                self.publish_log('mission', f'Rejected waypoint. Not in config: {value}')
+                return
+
+            self.selected_mode = mode
+            self.selected_dropoff_waypoint = value
+
+            self.publish_log(
+                'mission',
+                f'Selected dropoff waypoint for {mode}: {value}'
+            )
+
+        except Exception as error:
+            self.publish_log('mission', f'Failed to parse selected waypoint: {error}')
+
+    def handle_odom_for_base_frame(self, msg):
+        if msg.child_frame_id:
+            self.robot_base_frame = msg.child_frame_id
+
+    def publish_robot_pose_map(self):
+        try:
+            transform = self.tf_buffer.lookup_transform(
+                'map',
+                self.robot_base_frame,
+                Time()
+            )
+        except TransformException:
+            return
+
+        pose_msg = PoseStamped()
+        pose_msg.header = transform.header
+
+        pose_msg.pose.position.x = transform.transform.translation.x
+        pose_msg.pose.position.y = transform.transform.translation.y
+        pose_msg.pose.position.z = transform.transform.translation.z
+
+        pose_msg.pose.orientation = transform.transform.rotation
+
+        self.robot_pose_map_pub.publish(pose_msg)
 
     def is_process_running(self, key):
         record = self.processes.get(key)
@@ -167,6 +322,16 @@ class WebProcessManager(Node):
             response.success = False
             response.message = f'{key} is already running with PID {process.pid}'
             return response
+
+        if '{dropoff_waypoint}' in command:
+            if not self.selected_dropoff_waypoint:
+                response.success = False
+                response.message = 'No dropoff waypoint selected'
+                return response
+
+            command = command.format(
+                dropoff_waypoint=self.selected_dropoff_waypoint
+            )
 
         log_file_path = self.log_dir / f'{key}.log'
 

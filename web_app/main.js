@@ -48,9 +48,38 @@ var app = new Vue({
         missionStatusTopic: null,
         nav2LogTopic: null,
         missionLogTopic: null,
+        webConfigTopic: null,
+        selectedDropoffWaypointTopic: null,
+
         navToPoseTopic: null,
         odomTopic: null,
+        robotPoseMapTopic: null,
         cmdVelTopic: null,
+
+        webConfigLoaded: false,
+
+        webConfig: {
+            modes: {
+                simulation: {
+                    cmd_vel_topic: '/diffbot_base_controller/cmd_vel_unstamped',
+                    dropoff_waypoints: [
+                        {
+                            label: 'SIM dropoff',
+                            value: '2.4,0.05,1.57'
+                        }
+                    ]
+                },
+                real: {
+                    cmd_vel_topic: '/cmd_vel',
+                    dropoff_waypoints: []
+                }
+            }
+        },
+
+        selectedDropoffWaypoint: '2.4,0.05,1.57',
+
+        joystickLinearSpeed: 0.1,
+        joystickAngularSpeed: 0.25,
 
         elevatorDirection: 'up'
     },
@@ -58,7 +87,37 @@ var app = new Vue({
     computed: {
         canStartMission() {
             return this.connected && this.nav2Running && this.localizationDone;
+        },
+
+        currentModeConfig() {
+            if (!this.webConfig || !this.webConfig.modes) {
+                return {};
+            }
+
+            return this.webConfig.modes[this.selectedMode] || {};
+        },
+
+        dropoffWaypoints() {
+            return this.currentModeConfig.dropoff_waypoints || [];
         }
+    },
+
+    watch: {
+        selectedMode() {
+            this.selectDefaultDropoffWaypoint();
+
+            if (this.connected) {
+                this.setupRobotTopics();
+            }
+
+            this.addLog(`Mode selected: ${this.getModeLabel()}`);
+        },
+
+        selectedDropoffWaypoint() {
+        if (this.connected && this.selectedDropoffWaypointTopic && this.selectedDropoffWaypoint) {
+            this.publishSelectedDropoffWaypoint();
+        }
+    }
     },
 
     methods: {
@@ -105,6 +164,84 @@ var app = new Vue({
             const cosyCosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z);
 
             return Math.atan2(sinyCosp, cosyCosp);
+        },
+
+        // ==================================================
+        // Dynamic config
+        // ==================================================
+        handleWebConfigMessage(msg) {
+            try {
+                const parsedConfig = JSON.parse(msg.data);
+
+                if (!parsedConfig || !parsedConfig.modes) {
+                    this.addLog('Received invalid web config.');
+                    return;
+                }
+
+                this.webConfig = parsedConfig;
+                this.selectDefaultDropoffWaypoint();
+
+                if (!this.webConfigLoaded) {
+                    this.webConfigLoaded = true;
+                    this.addLog('Loaded web config from ROS.');
+                }
+            } catch (error) {
+                this.addLog('Failed to parse web config.');
+                console.error(error);
+            }
+        },
+
+        selectDefaultDropoffWaypoint() {
+            const waypoints = this.dropoffWaypoints;
+
+            if (waypoints.length === 0) {
+                this.selectedDropoffWaypoint = '';
+                return;
+            }
+
+            const selectedStillExists = waypoints.some((waypoint) => {
+                return waypoint.value === this.selectedDropoffWaypoint;
+            });
+
+            if (!selectedStillExists) {
+                this.selectedDropoffWaypoint = waypoints[0].value;
+            }
+        },
+
+        getCurrentCmdVelTopicName() {
+            if (this.currentModeConfig.cmd_vel_topic) {
+                return this.currentModeConfig.cmd_vel_topic;
+            }
+
+            return this.selectedMode === 'real'
+                ? '/cmd_vel'
+                : '/diffbot_base_controller/cmd_vel_unstamped';
+        },
+
+        publishSelectedDropoffWaypoint() {
+            if (!this.selectedDropoffWaypointTopic) {
+                this.addLog('Selected waypoint topic is not ready.');
+                return false;
+            }
+
+            if (!this.selectedDropoffWaypoint) {
+                this.addLog('No dropoff waypoint selected.');
+                return false;
+            }
+
+            const message = new ROSLIB.Message({
+                data: JSON.stringify({
+                    mode: this.selectedMode,
+                    value: this.selectedDropoffWaypoint
+                })
+            });
+
+            this.selectedDropoffWaypointTopic.publish(message);
+
+            this.addLog(`Selected dropoff waypoint: ${this.selectedDropoffWaypoint}`);
+            this.addMissionLog(`Selected dropoff waypoint: ${this.selectedDropoffWaypoint}`);
+
+            return true;
         },
 
         // ==================================================
@@ -157,6 +294,7 @@ var app = new Vue({
                 this.localizationDone = false;
                 this.missionRunning = false;
                 this.missionTriggered = false;
+                this.webConfigLoaded = false;
 
                 this.resetRobotStatus();
             });
@@ -224,6 +362,18 @@ var app = new Vue({
                 messageType: 'std_msgs/String'
             });
 
+            this.webConfigTopic = new ROSLIB.Topic({
+                ros: this.ros,
+                name: '/web/config',
+                messageType: 'std_msgs/String'
+            });
+
+            this.selectedDropoffWaypointTopic = new ROSLIB.Topic({
+                ros: this.ros,
+                name: '/web/selected_dropoff_waypoint',
+                messageType: 'std_msgs/String'
+            });
+
             this.navToPoseTopic = new ROSLIB.Topic({
                 ros: this.ros,
                 name: '/web/nav_to_pose',
@@ -256,7 +406,9 @@ var app = new Vue({
                 this.addMissionLog(msg.data);
             });
 
-            this.addLog('Subscribed to web status and log topics.');
+            this.webConfigTopic.subscribe(this.handleWebConfigMessage);
+
+            this.addLog('Subscribed to web status, log and config topics.');
         },
 
         cleanupWebTopics() {
@@ -280,11 +432,17 @@ var app = new Vue({
                 this.missionLogTopic = null;
             }
 
+            if (this.webConfigTopic) {
+                this.webConfigTopic.unsubscribe();
+                this.webConfigTopic = null;
+            }
+
+            this.selectedDropoffWaypointTopic = null;
             this.navToPoseTopic = null;
         },
 
         // ==================================================
-        // Robot topics: odom + cmd_vel
+        // Robot topics: odom velocity + map-frame pose + cmd_vel
         // ==================================================
         setupRobotTopics() {
             this.cleanupRobotTopics();
@@ -297,13 +455,24 @@ var app = new Vue({
 
             this.odomTopic.subscribe(this.handleOdomMessage);
 
+            this.robotPoseMapTopic = new ROSLIB.Topic({
+                ros: this.ros,
+                name: '/web/robot_pose_map',
+                messageType: 'geometry_msgs/PoseStamped'
+            });
+
+            this.robotPoseMapTopic.subscribe(this.handleRobotPoseMapMessage);
+
+            this.cmdVelTopicName = this.getCurrentCmdVelTopicName();
+
             this.cmdVelTopic = new ROSLIB.Topic({
                 ros: this.ros,
                 name: this.cmdVelTopicName,
                 messageType: 'geometry_msgs/Twist'
             });
 
-            this.addLog(`Subscribed to odom topic: ${this.odomTopicName}`);
+            this.addLog(`Subscribed to odom topic for velocity: ${this.odomTopicName}`);
+            this.addLog('Subscribed to map-frame robot pose: /web/robot_pose_map');
             this.addLog(`Prepared cmd_vel topic: ${this.cmdVelTopicName}`);
         },
 
@@ -311,6 +480,11 @@ var app = new Vue({
             if (this.odomTopic) {
                 this.odomTopic.unsubscribe();
                 this.odomTopic = null;
+            }
+
+            if (this.robotPoseMapTopic) {
+                this.robotPoseMapTopic.unsubscribe();
+                this.robotPoseMapTopic = null;
             }
 
             this.cmdVelTopic = null;
@@ -326,19 +500,19 @@ var app = new Vue({
         },
 
         handleOdomMessage(msg) {
-            const px = msg.pose.pose.position.x;
-            const py = msg.pose.pose.position.y;
-            const yaw = this.quaternionToYaw(msg.pose.pose.orientation);
-
             const linear = msg.twist.twist.linear.x;
             const angular = msg.twist.twist.angular.z;
 
-            this.position.x = this.formatNumber(px, 2);
-            this.position.y = this.formatNumber(py, 2);
-            this.position.yaw = this.formatNumber(yaw, 2);
-
             this.velocity.linear = this.formatNumber(linear, 2);
             this.velocity.angular = this.formatNumber(angular, 2);
+        },
+
+        handleRobotPoseMapMessage(msg) {
+            const yaw = this.quaternionToYaw(msg.pose.orientation);
+
+            this.position.x = this.formatNumber(msg.pose.position.x, 2);
+            this.position.y = this.formatNumber(msg.pose.position.y, 2);
+            this.position.yaw = this.formatNumber(yaw, 2);
         },
 
         // ==================================================
@@ -384,7 +558,7 @@ var app = new Vue({
             const services = {
                 simulation: {
                     nav2: '/web/start_nav2_stack',
-                    localization: '/web/start_self_localizationunstamped',
+                    localization: '/web/start_self_localization_unstamped',
                     mission: '/web/start_bt_mission'
                 },
 
@@ -441,17 +615,27 @@ var app = new Vue({
                 return;
             }
 
+            if (!this.publishSelectedDropoffWaypoint()) {
+                return;
+            }
+
             const serviceName = this.getServiceName('mission');
 
-            this.callTriggerService(
-                serviceName,
-                `Run BT Mission - ${this.getModeLabel()}`,
-                () => {
-                    this.missionRunning = true;
-                    this.missionTriggered = false;
-                    this.showMissionLogs = true;
-                }
-            );
+            /*
+             * Small delay gives ROSBridge time to deliver /web/selected_dropoff_waypoint
+             * before the Trigger service starts the mission launch command.
+             */
+            setTimeout(() => {
+                this.callTriggerService(
+                    serviceName,
+                    `Run BT Mission - ${this.getModeLabel()}`,
+                    () => {
+                        this.missionRunning = true;
+                        this.missionTriggered = false;
+                        this.showMissionLogs = true;
+                    }
+                );
+            }, 150);
         },
 
         triggerOrAbortMission() {
@@ -557,7 +741,29 @@ var app = new Vue({
 
             this.cmdVelTopic.publish(message);
 
-            this.addNav2Log(`Joystick cmd_vel: linear.x=${linearX}, angular.z=${angularZ}`);
+            this.addNav2Log(
+                `Joystick cmd_vel on ${this.cmdVelTopicName}: linear.x=${linearX}, angular.z=${angularZ}`
+            );
+        },
+
+        sendJoystickForward() {
+            this.sendJoystickCommand(this.joystickLinearSpeed, 0.0);
+        },
+
+        sendJoystickBackward() {
+            this.sendJoystickCommand(-this.joystickLinearSpeed, 0.0);
+        },
+
+        sendJoystickLeft() {
+            this.sendJoystickCommand(0.0, this.joystickAngularSpeed);
+        },
+
+        sendJoystickRight() {
+            this.sendJoystickCommand(0.0, -this.joystickAngularSpeed);
+        },
+
+        sendJoystickStop() {
+            this.sendJoystickCommand(0.0, 0.0);
         },
 
         // ==================================================
