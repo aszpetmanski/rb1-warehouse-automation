@@ -234,7 +234,7 @@
         <PlaceShelf
           dropoff_pose="{dropoff_pose}"
           target_frame="map"
-          drive_distance="1.05"
+          drive_distance="1.15"
           forward_speed="0.10"
           yaw_gain="2.0"
           max_angular_speed="0.35"
@@ -270,7 +270,7 @@
           global_clearing_layer_name="obstacle_layer" />
 
         <CustomBackUp
-          distance="1.10"
+          distance="1.20"
           speed="0.10"
           time_allowance="25.0"
           cmd_vel_topic="/cmd_vel"

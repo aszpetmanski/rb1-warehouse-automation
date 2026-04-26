@@ -8,8 +8,8 @@ planner_server:
 
     GridBased:
       plugin: "nav2_navfn_planner/NavfnPlanner"
-      tolerance: 0.10
-      use_astar: false
+      tolerance: 0.15
+      use_astar: true
       allow_unknown: true
 
 

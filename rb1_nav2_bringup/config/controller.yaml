@@ -24,8 +24,8 @@ controller_server:
     general_goal_checker:
       plugin: "nav2_controller::SimpleGoalChecker"
       stateful: True
-      xy_goal_tolerance: 0.10
-      yaw_goal_tolerance: 0.20
+      xy_goal_tolerance: 0.12
+      yaw_goal_tolerance: 0.22
 
     # DWB local planner
     FollowPath:
@@ -47,12 +47,12 @@ controller_server:
       trans_stopped_velocity: 0.02
 
       # Acceleration limits
-      acc_lim_x: 2.5
+      acc_lim_x: 2.0
       acc_lim_y: 0.0
-      acc_lim_theta: 3.2
-      decel_lim_x: -2.5
+      acc_lim_theta: 3.0
+      decel_lim_x: -2.0
       decel_lim_y: 0.0
-      decel_lim_theta: -3.2
+      decel_lim_theta: -3.0
 
       # Sampling
       vx_samples: 20
@@ -64,7 +64,7 @@ controller_server:
       linear_granularity: 0.05
       angular_granularity: 0.025
       transform_tolerance: 0.2
-      xy_goal_tolerance: 0.10
+      xy_goal_tolerance: 0.12
 
       # Critics
       critics: ["RotateToGoal", "Oscillation", "GoalAlign", "BaseObstacle", "PathAlign", "PathDist", "GoalDist"]

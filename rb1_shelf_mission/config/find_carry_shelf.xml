@@ -226,7 +226,7 @@
         <PlaceShelf
           dropoff_pose="{dropoff_pose}"
           target_frame="map"
-          drive_distance="0.95"
+          drive_distance="1.05"
           forward_speed="0.10"
           yaw_gain="2.0"
           max_angular_speed="0.35"

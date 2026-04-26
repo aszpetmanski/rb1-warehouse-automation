@@ -2,7 +2,7 @@
   <BehaviorTree ID="MainTree">
     <Sequence name="StartupLocalization">
       <ReinitializeGlobalLocalization service_name="reinitialize_global_localization"/>
-      <Spin spin_dist="6.28"/>
+      <Spin spin_dist="3.14"/>
       <Wait wait_duration="1.0"/>
     </Sequence>
   </BehaviorTree>
