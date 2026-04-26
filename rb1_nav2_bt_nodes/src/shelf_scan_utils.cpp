@@ -22,7 +22,7 @@ constexpr int kMinSideSamples = 5;
 // Use only the brightest local returns inside each cluster to estimate the
 // reflective leg center. This is per-cluster, so one globally brighter side
 // does not pull the shelf center by itself.
-constexpr double kBrightCoreFraction = 0.25; // brightest 35% of cluster points
+constexpr double kBrightCoreFraction = 0.50; // brightest 35% of cluster points
 constexpr int kMinBrightCorePoints = 3;
 constexpr double kBrightWeightGain = 2.0; // max weight = 1 + gain
 

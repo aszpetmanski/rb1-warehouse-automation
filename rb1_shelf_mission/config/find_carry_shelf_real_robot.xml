@@ -95,7 +95,7 @@
           shelf_left_leg="{shelf_left_leg}"
           shelf_right_leg="{shelf_right_leg}"
           target_frame="map"
-          predock_offset="0.80"
+          predock_offset="0.85"
           predock_pose="{predock_pose}" />
 
         <RecoveryNode number_of_retries="6" name="NavigateToPredockRecovery">
@@ -127,12 +127,12 @@
           scan_topic="/scan"
           cmd_vel_topic="/cmd_vel"
           target_frame="map"
-          front_window_start_idx="250"
-          front_window_end_idx="830"
+          front_window_start_idx="310"
+          front_window_end_idx="770"
           expected_leg_spacing="0.61"
           leg_spacing_tolerance="0.04"
           cluster_gap_tolerance="0.05"
-          intensity_threshold="3650.0"
+          intensity_threshold="4850.0"
           max_detection_range="1.8"
           min_cluster_points="3"
           min_consecutive_hits="3"
@@ -156,7 +156,7 @@
           shelf_left_leg="{shelf_left_leg}"
           shelf_right_leg="{shelf_right_leg}"
           target_frame="map"
-          predock_offset="0.50"
+          predock_offset="0.30"
           predock_pose="{predock_pose_refined}" />
 
         <AdjustToPoseLocal
@@ -177,24 +177,24 @@
           cmd_vel_topic="/cmd_vel"
           elevator_up_topic="/elevator_up"
           robot_base_frame="robot_base_link"
-          drive_distance="0.78"
+          drive_distance="0.58"
           forward_speed="0.07"
-          yaw_gain="1.9"
+          yaw_gain="2.5"
           max_angular_speed="0.45"
           control_rate="10.0" />
 
         <SwitchToCarryMode
-          carry_footprint="[[0.48,0.37],[0.48,-0.37],[-0.33,-0.37],[-0.33,0.37]]"
+          carry_footprint="[[0.48,0.44],[0.48,-0.44],[-0.33,-0.41],[-0.33,0.41]]"
           footprint_padding="0.01"
-          local_inflation_radius="0.50"
+          local_inflation_radius="0.49"
           local_cost_scaling_factor="7.0"
-          global_inflation_radius="0.50"
+          global_inflation_radius="0.49"
           global_cost_scaling_factor="7.0" />
         
         <CustomBackUp
-          distance="1.31"
+          distance="1.35"
           speed="0.10"
-          time_allowance="25.0"
+          time_allowance="27.0"
           turn_sign="{backup_turn_sign}"
           turn_angular_speed="0.05"
           cmd_vel_topic="/cmd_vel"

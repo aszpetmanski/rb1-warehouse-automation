@@ -280,7 +280,7 @@ bool RefineShelfGeometry::detectBestShelfGeometry(
   }
 
   TransformPointOptions tf_options;
-  tf_options.exact_timeout_sec = 0.05;
+  tf_options.exact_timeout_sec = 0.10;
   tf_options.allow_latest_fallback = true;
   tf_options.fallback_timeout_sec = 0.05;
   tf_options.warn_on_fallback = false;
@@ -359,7 +359,7 @@ bool RefineShelfGeometry::detectBestShelfGeometry(
 
       // Shelf front should be roughly perpendicular to robot heading.
       // If this is too strict, start with 0.20.
-      if (depth_diff > 0.18) {
+      if (depth_diff > 0.22) {
         continue;
       }
 
