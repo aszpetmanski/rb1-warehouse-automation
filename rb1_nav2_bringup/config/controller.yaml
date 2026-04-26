@@ -27,6 +27,7 @@ controller_server:
       xy_goal_tolerance: 0.12
       yaw_goal_tolerance: 0.22
 
+
     # DWB local planner
     FollowPath:
       plugin: "dwb_core::DWBLocalPlanner"
