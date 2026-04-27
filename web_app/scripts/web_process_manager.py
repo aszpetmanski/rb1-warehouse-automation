@@ -83,7 +83,7 @@ class WebProcessManager(Node):
         )
 
         self.last_feedback_log_time = 0.0
-        self.robot_base_frame = 'base_link'
+        self.robot_base_frame = 'robot_base_footprint'
 
         self.web_config = {
             'modes': {

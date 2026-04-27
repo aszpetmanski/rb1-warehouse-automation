@@ -132,7 +132,7 @@
           expected_leg_spacing="0.61"
           leg_spacing_tolerance="0.04"
           cluster_gap_tolerance="0.05"
-          intensity_threshold="4850.0"
+          intensity_threshold="4350.0"
           max_detection_range="1.8"
           min_cluster_points="3"
           min_consecutive_hits="3"
