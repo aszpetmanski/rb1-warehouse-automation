@@ -5,15 +5,17 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
+    <title>Robot Web Control Panel</title>
+
     <!-- Bootstrap -->
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"
         integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous" />
 
-    <!-- ROSLIB -->
+    <!-- ROSLIB dependencies -->
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/eventemitter2/lib/eventemitter2.min.js"></script>
     <script type="text/javascript" src="https://s3.eu-west-1.amazonaws.com/rosject.io/js/roslib.min.js"></script>
 
-    <!-- Vue -->
+    <!-- Vue 2 -->
     <script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.min.js"></script>
 
     <style>
@@ -184,8 +186,8 @@
 
         <div class="row">
             <!-- LEFT: NAV2 / ROBOT -->
-            <div class="col-lg-4 col-md-12">
-                <div class="section-card" v-if="connected && nav2Running">
+            <div class="col-lg-4 col-md-12" v-if="connected">
+                <div class="section-card" v-if="nav2Running">
                     <div class="panel-title">Nav2 / Robot</div>
 
                     <div class="panel-subtitle">
@@ -236,12 +238,18 @@
                         <button class="btn btn-primary command-btn" @click="sendNavToPose">
                             Nav To Pose
                         </button>
+
+                        <button class="btn btn-success command-btn" @click="sendGoInitPose" :disabled="!nav2Running">
+                            GO INIT POS
+                        </button>
                     </div>
 
                     <hr />
 
                     <div class="panel-title">Joystick</div>
-                    <div class="panel-subtitle">Linear speed 0.1, angular speed 0.25</div>
+                    <div class="panel-subtitle">
+                        Linear speed {{ joystickLinearSpeed }}, angular speed {{ joystickAngularSpeed }}
+                    </div>
 
                     <div class="joystick-grid">
                         <div class="empty"></div>
@@ -294,7 +302,7 @@
                     </div>
                 </div>
 
-                <div class="section-card" v-if="connected && !nav2Running">
+                <div class="section-card" v-if="!nav2Running">
                     <div class="panel-title">Nav2 / Robot</div>
                     <div class="panel-subtitle">
                         Start Nav2 Stack to show Nav To Pose, map-frame robot pose, odom velocity and joystick.
@@ -303,7 +311,7 @@
             </div>
 
             <!-- CENTER: ROSBRIDGE / CONTROL -->
-            <div class="col-lg-4 col-md-12">
+            <div class="col-lg-4 col-md-12" :class="{ 'mx-auto': !connected }">
                 <div class="section-card connection-box">
                     <div class="panel-title">ROSBridge Connection</div>
 
@@ -346,14 +354,15 @@
                     <hr />
 
                     <div class="command-grid">
-                        <button :class="nav2Running ? 'btn btn-secondary command-btn' : 'btn btn-primary command-btn'"
-                            :disabled="nav2Running" @click="startNav2Stack">
-                            {{ nav2Running ? 'NAV2 RUNNING' : 'Start Nav2 Stack' }}
+                        <button :class="nav2Running ? 'btn btn-danger command-btn' : 'btn btn-primary command-btn'"
+                            :disabled="loading" @click="nav2Running ? stopNav2Stack() : startNav2Stack()">
+                            {{ nav2Running ? 'Close Nav2 Stack' : 'Start Nav2 Stack' }}
                         </button>
 
-                        <button :class="localizationDone ? 'btn btn-secondary command-btn' : 'btn btn-info command-btn'"
-                            :disabled="!nav2Running || localizationDone" @click="startSelfLocalization">
-                            {{ localizationDone ? 'ROBOT LOCALIZED' : 'Start Self Localization' }}
+                        <button
+                            :class="localizationRunning ? 'btn btn-secondary command-btn' : 'btn btn-info command-btn'"
+                            :disabled="!nav2Running || localizationRunning" @click="startSelfLocalization">
+                            {{ localizationButtonText }}
                         </button>
                     </div>
 
@@ -362,7 +371,7 @@
                     </div>
                 </div>
 
-                <div class="section-card">
+                <div class="section-card" v-if="connected">
                     <button class="btn btn-outline-dark logs-toggle" @click="showSystemLogs = !showSystemLogs">
                         {{ showSystemLogs ? 'HIDE SYSTEM LOGS' : 'SHOW SYSTEM LOGS' }}
                     </button>
@@ -380,8 +389,8 @@
             </div>
 
             <!-- RIGHT: MISSION / ELEVATOR -->
-            <div class="col-lg-4 col-md-12">
-                <div class="section-card" v-if="connected">
+            <div class="col-lg-4 col-md-12" v-if="connected">
+                <div class="section-card">
                     <div class="panel-title">Mission</div>
 
                     <div class="form-group">
@@ -446,18 +455,12 @@
                         </div>
                     </div>
                 </div>
-
-                <div class="section-card" v-if="!connected">
-                    <div class="panel-title">Mission</div>
-                    <div class="panel-subtitle">
-                        Connect through ROSBridge to enable mission controls.
-                    </div>
-                </div>
             </div>
         </div>
     </div>
 
-    <script src="main.js?v=6"></script>
+    <!-- Main Vue app -->
+    <script src="main.js"></script>
 </body>
 
 </html>

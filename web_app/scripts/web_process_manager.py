@@ -36,6 +36,7 @@ class WebProcessManager(Node):
 
         self.nav2_status_pub = self.create_publisher(String, '/web/status/nav2', 10)
         self.mission_status_pub = self.create_publisher(String, '/web/status/mission', 10)
+        self.localization_status_pub = self.create_publisher(String, '/web/status/localization', 10)
 
         config_qos = QoSProfile(depth=1)
         config_qos.durability = DurabilityPolicy.TRANSIENT_LOCAL
@@ -89,6 +90,7 @@ class WebProcessManager(Node):
             'modes': {
                 'simulation': {
                     'cmd_vel_topic': '/diffbot_base_controller/cmd_vel_unstamped',
+                    'init_waypoint': '0.506,2.576,0.5',
                     'dropoff_waypoints': [
                         {
                             'label': 'SIM dropoff',
@@ -98,6 +100,7 @@ class WebProcessManager(Node):
                 },
                 'real': {
                     'cmd_vel_topic': '/cmd_vel',
+                    'init_waypoint': '0.506,2.576,0.5',
                     'dropoff_waypoints': [
                         {
                             'label': 'po prawej górna',
@@ -311,8 +314,12 @@ class WebProcessManager(Node):
         mission_msg.data = 'running' if self.is_group_running('mission') else 'stopped'
         self.mission_status_pub.publish(mission_msg)
 
+        localization_msg = String()
+        localization_msg.data = 'running' if self.is_group_running('localization') else 'stopped'
+        self.localization_status_pub.publish(localization_msg)
+
     def start_process(self, key, command, process_group, log_group, response):
-        if process_group in ['nav2', 'mission'] and self.is_group_running(process_group):
+        if process_group in ['nav2', 'mission', 'localization'] and self.is_group_running(process_group):
             response.success = False
             response.message = f'{process_group} is already running'
             return response
@@ -385,6 +392,7 @@ fi
 
             self.publish_log(log_group, response.message)
             self.get_logger().info(response.message)
+            self.publish_status()
 
         except Exception as error:
             response.success = False
@@ -460,7 +468,10 @@ fi
         return response
 
     def stop_nav2_callback(self, request, response):
-        stopped = self.stop_group('nav2')
+        stopped_nav2 = self.stop_group('nav2')
+        stopped_localization = self.stop_group('localization')
+
+        stopped = stopped_nav2 + stopped_localization
 
         if stopped:
             response.success = True
@@ -499,7 +510,11 @@ fi
         send_goal_future.add_done_callback(self.nav_goal_response_callback)
 
     def nav_goal_response_callback(self, future):
-        goal_handle = future.result()
+        try:
+            goal_handle = future.result()
+        except Exception as error:
+            self.publish_log('nav2', f'Nav To Pose goal failed: {error}')
+            return
 
         if not goal_handle.accepted:
             self.publish_log('nav2', 'Nav To Pose goal was rejected.')
@@ -527,8 +542,11 @@ fi
             self.publish_log('nav2', 'Nav feedback received.')
 
     def nav_result_callback(self, future):
-        result = future.result()
-        self.publish_log('nav2', f'Nav To Pose finished with status: {result.status}')
+        try:
+            result = future.result()
+            self.publish_log('nav2', f'Nav To Pose finished with status: {result.status}')
+        except Exception as error:
+            self.publish_log('nav2', f'Nav To Pose result failed: {error}')
 
     def destroy_node(self):
         for key, record in self.processes.items():

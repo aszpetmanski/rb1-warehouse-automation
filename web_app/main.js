@@ -20,6 +20,8 @@ var app = new Vue({
         heartbeatInterval: null,
 
         nav2Running: false,
+        localizationRunning: false,
+        localizationStartedOnce: false,
         localizationDone: false,
         missionRunning: false,
         missionTriggered: false,
@@ -46,6 +48,7 @@ var app = new Vue({
 
         nav2StatusTopic: null,
         missionStatusTopic: null,
+        localizationStatusTopic: null,
         nav2LogTopic: null,
         missionLogTopic: null,
         webConfigTopic: null,
@@ -58,10 +61,13 @@ var app = new Vue({
 
         webConfigLoaded: false,
 
+        initWaypointFallback: '0.506,2.576,0.5',
+
         webConfig: {
             modes: {
                 simulation: {
                     cmd_vel_topic: '/diffbot_base_controller/cmd_vel_unstamped',
+                    init_waypoint: '0.506,2.576,0.5',
                     dropoff_waypoints: [
                         {
                             label: 'SIM dropoff',
@@ -71,6 +77,7 @@ var app = new Vue({
                 },
                 real: {
                     cmd_vel_topic: '/cmd_vel',
+                    init_waypoint: '0.506,2.576,0.5',
                     dropoff_waypoints: []
                 }
             }
@@ -99,6 +106,26 @@ var app = new Vue({
 
         dropoffWaypoints() {
             return this.currentModeConfig.dropoff_waypoints || [];
+        },
+
+        initWaypoint() {
+            if (this.currentModeConfig.init_waypoint) {
+                return this.currentModeConfig.init_waypoint;
+            }
+
+            return this.initWaypointFallback;
+        },
+
+        localizationButtonText() {
+            if (this.localizationRunning) {
+                return 'LOCALIZATION RUNNING';
+            }
+
+            if (this.localizationDone) {
+                return 'Start Self Localization Again';
+            }
+
+            return 'Start Self Localization';
         }
     },
 
@@ -114,10 +141,10 @@ var app = new Vue({
         },
 
         selectedDropoffWaypoint() {
-        if (this.connected && this.selectedDropoffWaypointTopic && this.selectedDropoffWaypoint) {
-            this.publishSelectedDropoffWaypoint();
+            if (this.connected && this.selectedDropoffWaypointTopic && this.selectedDropoffWaypoint) {
+                this.publishSelectedDropoffWaypoint();
+            }
         }
-    }
     },
 
     methods: {
@@ -164,6 +191,31 @@ var app = new Vue({
             const cosyCosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z);
 
             return Math.atan2(sinyCosp, cosyCosp);
+        },
+
+        yawToQuaternion(yaw) {
+            return {
+                x: 0.0,
+                y: 0.0,
+                z: Math.sin(yaw / 2.0),
+                w: Math.cos(yaw / 2.0)
+            };
+        },
+
+        parseWaypoint(value) {
+            const parts = String(value)
+                .split(',')
+                .map((item) => parseFloat(item.trim()));
+
+            if (parts.length !== 3 || parts.some((item) => Number.isNaN(item))) {
+                throw new Error(`Invalid waypoint: ${value}`);
+            }
+
+            return {
+                x: parts[0],
+                y: parts[1],
+                yaw: parts[2]
+            };
         },
 
         // ==================================================
@@ -291,6 +343,8 @@ var app = new Vue({
                 this.ros = null;
 
                 this.nav2Running = false;
+                this.localizationRunning = false;
+                this.localizationStartedOnce = false;
                 this.localizationDone = false;
                 this.missionRunning = false;
                 this.missionTriggered = false;
@@ -350,6 +404,12 @@ var app = new Vue({
                 messageType: 'std_msgs/String'
             });
 
+            this.localizationStatusTopic = new ROSLIB.Topic({
+                ros: this.ros,
+                name: '/web/status/localization',
+                messageType: 'std_msgs/String'
+            });
+
             this.nav2LogTopic = new ROSLIB.Topic({
                 ros: this.ros,
                 name: '/web/log/nav2',
@@ -384,6 +444,8 @@ var app = new Vue({
                 this.nav2Running = msg.data === 'running';
 
                 if (!this.nav2Running) {
+                    this.localizationRunning = false;
+                    this.localizationStartedOnce = false;
                     this.localizationDone = false;
                     this.missionRunning = false;
                     this.missionTriggered = false;
@@ -398,6 +460,23 @@ var app = new Vue({
                 }
             });
 
+            this.localizationStatusTopic.subscribe((msg) => {
+                const wasRunning = this.localizationRunning;
+                const isRunning = msg.data === 'running';
+
+                this.localizationRunning = isRunning;
+
+                if (isRunning) {
+                    this.localizationStartedOnce = true;
+                }
+
+                if (wasRunning && !isRunning && this.localizationStartedOnce && this.nav2Running) {
+                    this.localizationDone = true;
+                    this.addLog('Self localization finished. Robot marked as localized.');
+                    this.addNav2Log('Self localization finished. Robot marked as localized.');
+                }
+            });
+
             this.nav2LogTopic.subscribe((msg) => {
                 this.addNav2Log(msg.data);
             });
@@ -406,7 +485,9 @@ var app = new Vue({
                 this.addMissionLog(msg.data);
             });
 
-            this.webConfigTopic.subscribe(this.handleWebConfigMessage);
+            this.webConfigTopic.subscribe((msg) => {
+                this.handleWebConfigMessage(msg);
+            });
 
             this.addLog('Subscribed to web status, log and config topics.');
         },
@@ -420,6 +501,11 @@ var app = new Vue({
             if (this.missionStatusTopic) {
                 this.missionStatusTopic.unsubscribe();
                 this.missionStatusTopic = null;
+            }
+
+            if (this.localizationStatusTopic) {
+                this.localizationStatusTopic.unsubscribe();
+                this.localizationStatusTopic = null;
             }
 
             if (this.nav2LogTopic) {
@@ -453,7 +539,9 @@ var app = new Vue({
                 messageType: 'nav_msgs/Odometry'
             });
 
-            this.odomTopic.subscribe(this.handleOdomMessage);
+            this.odomTopic.subscribe((msg) => {
+                this.handleOdomMessage(msg);
+            });
 
             this.robotPoseMapTopic = new ROSLIB.Topic({
                 ros: this.ros,
@@ -461,7 +549,9 @@ var app = new Vue({
                 messageType: 'geometry_msgs/PoseStamped'
             });
 
-            this.robotPoseMapTopic.subscribe(this.handleRobotPoseMapMessage);
+            this.robotPoseMapTopic.subscribe((msg) => {
+                this.handleRobotPoseMapMessage(msg);
+            });
 
             this.cmdVelTopicName = this.getCurrentCmdVelTopicName();
 
@@ -569,6 +659,11 @@ var app = new Vue({
                 }
             };
 
+            if (!services[this.selectedMode] || !services[this.selectedMode][commandName]) {
+                this.addLog(`Unknown service command: ${commandName}`);
+                return '';
+            }
+
             return services[this.selectedMode][commandName];
         },
 
@@ -579,13 +674,36 @@ var app = new Vue({
         startNav2Stack() {
             const serviceName = this.getServiceName('nav2');
 
+            if (!serviceName) {
+                return;
+            }
+
             this.callTriggerService(
                 serviceName,
                 `Start Nav2 Stack - ${this.getModeLabel()}`,
                 () => {
                     this.nav2Running = true;
+                    this.localizationRunning = false;
+                    this.localizationStartedOnce = false;
                     this.localizationDone = false;
                     this.showNav2Logs = true;
+                }
+            );
+        },
+
+        stopNav2Stack() {
+            this.callTriggerService(
+                '/web/stop_nav2_stack',
+                'Close Nav2 Stack',
+                () => {
+                    this.nav2Running = false;
+                    this.localizationRunning = false;
+                    this.localizationStartedOnce = false;
+                    this.localizationDone = false;
+                    this.missionRunning = false;
+                    this.missionTriggered = false;
+                    this.showNav2Logs = true;
+                    this.addNav2Log('Nav2 Stack close requested from web panel.');
                 }
             );
         },
@@ -596,15 +714,25 @@ var app = new Vue({
                 return;
             }
 
+            if (this.localizationRunning) {
+                this.addLog('Self localization is already running.');
+                return;
+            }
+
             const serviceName = this.getServiceName('localization');
+
+            if (!serviceName) {
+                return;
+            }
 
             this.callTriggerService(
                 serviceName,
                 `Start Self Localization - ${this.getModeLabel()}`,
                 () => {
-                    this.localizationDone = true;
-                    this.addLog('Robot marked as localized.');
-                    this.addNav2Log('Robot marked as localized from web panel.');
+                    this.localizationRunning = true;
+                    this.localizationStartedOnce = true;
+                    this.localizationDone = false;
+                    this.addNav2Log('Self localization started from web panel.');
                 }
             );
         },
@@ -620,6 +748,10 @@ var app = new Vue({
             }
 
             const serviceName = this.getServiceName('mission');
+
+            if (!serviceName) {
+                return;
+            }
 
             /*
              * Small delay gives ROSBridge time to deliver /web/selected_dropoff_waypoint
@@ -669,28 +801,18 @@ var app = new Vue({
         // ==================================================
         // Nav To Pose
         // ==================================================
-        sendNavToPose() {
+        publishNavPose(x, y, yaw, label) {
             if (!this.nav2Running) {
                 this.addLog('Nav2 stack is not running.');
-                return;
+                return false;
             }
 
             if (!this.navToPoseTopic) {
                 this.addLog('Nav To Pose topic is not ready.');
-                return;
+                return false;
             }
 
-            const x = Number(this.navGoal.x);
-            const y = Number(this.navGoal.y);
-            const yaw = Number(this.navGoal.yaw);
-
-            if (isNaN(x) || isNaN(y) || isNaN(yaw)) {
-                this.addLog('Nav To Pose failed. X, Y and Yaw must be numbers.');
-                return;
-            }
-
-            const qz = Math.sin(yaw / 2.0);
-            const qw = Math.cos(yaw / 2.0);
+            const orientation = this.yawToQuaternion(yaw);
 
             const message = new ROSLIB.Message({
                 header: {
@@ -702,19 +824,44 @@ var app = new Vue({
                         y: y,
                         z: 0.0
                     },
-                    orientation: {
-                        x: 0.0,
-                        y: 0.0,
-                        z: qz,
-                        w: qw
-                    }
+                    orientation: orientation
                 }
             });
 
             this.navToPoseTopic.publish(message);
 
-            this.addLog(`Nav To Pose sent: x=${x}, y=${y}, yaw=${yaw}`);
-            this.addNav2Log(`Nav To Pose sent: x=${x}, y=${y}, yaw=${yaw}`);
+            this.addLog(`${label} sent: x=${x}, y=${y}, yaw=${yaw}`);
+            this.addNav2Log(`${label} sent: x=${x}, y=${y}, yaw=${yaw}`);
+
+            return true;
+        },
+
+        sendNavToPose() {
+            const x = Number(this.navGoal.x);
+            const y = Number(this.navGoal.y);
+            const yaw = Number(this.navGoal.yaw);
+
+            if (isNaN(x) || isNaN(y) || isNaN(yaw)) {
+                this.addLog('Nav To Pose failed. X, Y and Yaw must be numbers.');
+                return;
+            }
+
+            this.publishNavPose(x, y, yaw, 'Nav To Pose');
+        },
+
+        sendGoInitPose() {
+            try {
+                const waypoint = this.parseWaypoint(this.initWaypoint);
+
+                this.publishNavPose(
+                    waypoint.x,
+                    waypoint.y,
+                    waypoint.yaw,
+                    'GO INIT POS'
+                );
+            } catch (error) {
+                this.addLog(error.message);
+            }
         },
 
         // ==================================================
@@ -804,7 +951,9 @@ var app = new Vue({
 
                 if (count >= maxCount) {
                     clearInterval(timer);
-                    this.addMissionLog(`Elevator ${direction.toUpperCase()} command published ${maxCount} times on ${topicName}`);
+                    this.addMissionLog(
+                        `Elevator ${direction.toUpperCase()} command published ${maxCount} times on ${topicName}`
+                    );
                     this.addLog(`Elevator ${direction.toUpperCase()} command done.`);
                 }
             }, 200);
