@@ -103,23 +103,23 @@ class WebProcessManager(Node):
                     'init_waypoint': '0.506,2.576,0.5',
                     'dropoff_waypoints': [
                         {
-                            'label': 'po prawej górna',
+                            'label': 'DROPOFF NUMBER 3',
                             'value': '1.73,2.68,2.01'
                         },
                         {
-                            'label': 'po prawej środkowa',
+                            'label': 'DROPOFF NUMBER 2',
                             'value': '2.29,3.45,1.98'
                         },
                         {
-                            'label': 'po prawej dolna',
+                            'label': 'DROPOFF NUMBER 1',
                             'value': '3.132,3.449,2.035'
                         },
                         {
-                            'label': 'tam gdzie była',
+                            'label': 'DROPOFF NUMBER 5',
                             'value': '4.46,3.577,-1.11'
                         },
                         {
-                            'label': 'koło ładowarki',
+                            'label': 'DROPOFF NUMBER 4',
                             'value': '1.927,1.394,-1.116'
                         }
                     ]
