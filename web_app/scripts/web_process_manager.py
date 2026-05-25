@@ -93,8 +93,12 @@ class WebProcessManager(Node):
                     'init_waypoint': '0.506,2.576,0.5',
                     'dropoff_waypoints': [
                         {
-                            'label': 'SIM dropoff',
+                            'label': 'DROPOFF NUMBER 1',
                             'value': '2.4,0.05,1.57'
+                        },
+                        {
+                            'label': 'DROPOFF NUMBER 2',
+                            'value': '4.5,0.05,1.57'
                         }
                     ]
                 },
