@@ -90,7 +90,7 @@ class WebProcessManager(Node):
             'modes': {
                 'simulation': {
                     'cmd_vel_topic': '/diffbot_base_controller/cmd_vel_unstamped',
-                    'init_waypoint': '0.506,2.576,0.5',
+                    'init_waypoint': '0.00,0.000,0.00',
                     'dropoff_waypoints': [
                         {
                             'label': 'DROPOFF NUMBER 1',

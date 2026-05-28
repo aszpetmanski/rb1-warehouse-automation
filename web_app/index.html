@@ -172,6 +172,27 @@
             word-break: break-word;
         }
 
+
+        .warehouse-map-box {
+            margin-top: 14px;
+            text-align: center;
+        }
+
+        .warehouse-map-title {
+            font-weight: 700;
+            margin-bottom: 8px;
+        }
+
+        .warehouse-map-image {
+            display: block;
+            width: 100%;
+            max-height: 420px;
+            object-fit: contain;
+            border-radius: 10px;
+            border: 1px solid #dee2e6;
+            background: #f8f9fa;
+        }
+
         @media (max-width: 991px) {
             .section-card {
                 margin-bottom: 16px;
@@ -349,6 +370,20 @@
 
                     <div class="small-topic-label">
                         Mode config loaded: {{ webConfigLoaded ? 'yes' : 'waiting for /web/config' }}
+                    </div>
+
+
+                    <div class="warehouse-map-box">
+                        <div class="warehouse-map-title">{{ currentWarehouseMap.label }}</div>
+
+                        <button class="btn btn-outline-primary btn-sm mb-2"
+                            @click="showWarehouseMap = !showWarehouseMap">
+                            {{ showWarehouseMap ? 'Hide warehouse map' : 'Show warehouse map' }}
+                        </button>
+
+                        <img v-if="showWarehouseMap" class="warehouse-map-image" :src="currentWarehouseMap.src"
+                            :alt="currentWarehouseMap.label" loading="lazy" decoding="async"
+                            @error="handleWarehouseMapError" />
                     </div>
 
                     <hr />

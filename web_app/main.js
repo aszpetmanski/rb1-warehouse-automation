@@ -9,6 +9,17 @@ var app = new Vue({
         rosbridge_address: 'ws://localhost:9090',
         selectedMode: 'simulation',
 
+        warehouseMaps: {
+            simulation: {
+                label: 'Simulation warehouse map',
+                src: 'data/sim_warehouse_map.png'
+            },
+            real: {
+                label: 'Real warehouse map',
+                src: 'data/real_warehouse_map.png'
+            }
+        },
+
         logs: [],
         nav2Logs: [],
         missionLogs: [],
@@ -16,6 +27,7 @@ var app = new Vue({
         showSystemLogs: false,
         showNav2Logs: false,
         showMissionLogs: false,
+        showWarehouseMap: false,
 
         heartbeatInterval: null,
 
@@ -61,13 +73,13 @@ var app = new Vue({
 
         webConfigLoaded: false,
 
-        initWaypointFallback: '0.506,2.576,0.5',
+        initWaypointFallback: '0.00,0.576,0.5',
 
         webConfig: {
             modes: {
                 simulation: {
                     cmd_vel_topic: '/diffbot_base_controller/cmd_vel_unstamped',
-                    init_waypoint: '0.506,2.576,0.5',
+                    init_waypoint: '0.000,0.000,0.0',
                     dropoff_waypoints: [
                         {
                             label: 'SIM dropoff',
@@ -94,6 +106,10 @@ var app = new Vue({
     computed: {
         canStartMission() {
             return this.connected && this.nav2Running && this.localizationDone;
+        },
+
+        currentWarehouseMap() {
+            return this.warehouseMaps[this.selectedMode] || this.warehouseMaps.simulation;
         },
 
         currentModeConfig() {
@@ -200,6 +216,10 @@ var app = new Vue({
                 z: Math.sin(yaw / 2.0),
                 w: Math.cos(yaw / 2.0)
             };
+        },
+
+        handleWarehouseMapError() {
+            this.addLog(`Could not load warehouse map image: ${this.currentWarehouseMap.src}`);
         },
 
         parseWaypoint(value) {
